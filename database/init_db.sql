@@ -2,6 +2,9 @@ CREATE DATABASE virtual_pet_testing;
 
 \c virtual_pet_testing;
 
+
+-- django will take care of this, but i am still keeping the sql for reference
+/*
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -163,3 +166,4 @@ CREATE INDEX idx_chat_messages_session_id_created_at ON chat_messages(session_id
 CREATE INDEX idx_content_scans_asset_id_created_at ON content_scans(asset_id, created_at);
 CREATE INDEX idx_moderation_reports_status_created_at ON moderation_reports(status, created_at);
 CREATE INDEX idx_auth_sessions_user_id_expires_at ON auth_sessions(user_id, expires_at);
+*/
