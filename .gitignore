@@ -18,6 +18,9 @@ backend/.env
 backend/media/
 backend/staticfiles/
 
+# Root .env file (keep .env.example for reference)
+.env
+
 *.dump
 
 .vscode/
