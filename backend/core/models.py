@@ -356,3 +356,7 @@ class AuthSession(models.Model):
             models.Index(fields=["user", "expires_at"], name="idx_asess_user_expires"),
         ]
 
+class temp_personality(models.Model):
+    prompt = models.TextField(max_length=500)
+    def __str__(self):
+        return self.prompt

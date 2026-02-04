@@ -1,0 +1,65 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat with Rocko 🐾</title>
+    <style>
+        #conversation {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 300px;
+            width: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        textarea {
+            width: 500px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Chat with Rocko 🪨</h1>
+
+    <div id="conversation">Rocko is ready to chat! 🪨</div>
+    <br>
+
+    <textarea id="message" rows="4" placeholder="Talk to your pet..."></textarea>
+    <br><br>
+    <button onclick="sendMessage()">Send</button>
+
+    <script>
+        async function sendMessage() {
+            const messageInput = document.getElementById("message");
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            const conversation = document.getElementById("conversation");
+
+            conversation.textContent += `\nYou: ${message}`;
+
+            
+            messageInput.value = "";
+
+            try {
+                const res = await fetch("/chat/api/", {
+                    method: "POST", 
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message })
+                });
+
+                if (!res.ok) {
+                    conversation.textContent += `\nRocko: Error sending message!`;
+                    return;
+                }
+
+                const data = await res.json();
+                conversation.textContent += `\nRocko: ${data.reply}`;
+                conversation.scrollTop = conversation.scrollHeight; // auto scroll
+
+            } catch (err) {
+                conversation.textContent += `\nRocko: Something went wrong!`;
+            }
+        }
+    </script>
+</body>
+</html>
