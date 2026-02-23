@@ -1,11 +1,10 @@
 """
 Load sample data for pets, pet_assets, and pet_stats.
 
-Usage:
-  python backend/manage.py load_sample_pets
+use by running python backend/manage.py load_sample_pets
 
-Creates a sample user (if missing), several pets, pet_stats for each pet,
-and pet_assets for some pets. Safe to run multiple times; uses get_or_create
+Creates a sample user (if missing from the db currentlyy), several pets, pet_stats for each pet,
+and pet_assets for some pets. Safe to run multiple times (can use --clear), uses get_or_create
 for the sample user and creates new pets/assets each run (no duplicate checks).
 """
 
