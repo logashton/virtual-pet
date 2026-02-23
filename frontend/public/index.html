@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pet Project</title>
-
-    <!-- Link to external CSS -->
+    
     <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -14,8 +13,9 @@
 <header>
     <h1>Pet Project</h1>
     <nav>
-        <a href="#">Home</a>
-        <a href="#">About</a>
+        <a href="/">Home</a>
+        <span id="nav-login-wrap"><a href="/auth/">Login / Register</a></span>
+        <span id="nav-user-wrap" style="display: none;"><span id="nav-user-name"></span> <a href="#" id="nav-signout">Sign out</a></span>
     </nav>
 </header>
 
@@ -36,5 +36,50 @@
         </p>
     </main>
 </div>
+<script>
+(function () {
+    var token = localStorage.getItem('authToken');
+    var loginWrap = document.getElementById('nav-login-wrap');
+    var userWrap = document.getElementById('nav-user-wrap');
+    var userName = document.getElementById('nav-user-name');
+    var signOut = document.getElementById('nav-signout');
+
+    function setLoggedIn(displayName) {
+        if (loginWrap) loginWrap.style.display = 'none';
+        if (userWrap) userWrap.style.display = 'inline';
+        if (userName) userName.textContent = displayName || 'You';
+    }
+    function setLoggedOut() {
+        if (userWrap) userWrap.style.display = 'none';
+        if (loginWrap) loginWrap.style.display = 'inline';
+    }
+
+    signOut.addEventListener('click', function (e) {
+        e.preventDefault();
+        localStorage.removeItem('authToken');
+        setLoggedOut();
+    });
+
+    if (!token) {
+        setLoggedOut();
+        return;
+    }
+    fetch('/api/auth/me/', {
+        headers: { 'Authorization': 'Token ' + token }
+    })
+        .then(function (r) {
+            if (r.ok) return r.json();
+            setLoggedOut();
+            return null;
+        })
+        .then(function (data) {
+            if (data) {
+                var name = (data.display_name && data.display_name.trim()) ? data.display_name.trim() : (data.username || '');
+                setLoggedIn(name);
+            }
+        })
+        .catch(function () { setLoggedOut(); });
+})();
+</script>
 </body>
 </html>

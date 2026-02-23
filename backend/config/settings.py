@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework.authtoken",
     "core",
     "chat",
 ]
@@ -84,3 +85,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Custom user table/schema lives in database/init_db.sql
 AUTH_USER_MODEL = "core.User"
 
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+}

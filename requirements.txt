@@ -5,5 +5,3 @@ python-dotenv
 requests
 openai
 pillow
-torch
-opencv-python
