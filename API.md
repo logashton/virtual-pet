@@ -92,3 +92,95 @@ Returns `200` with updated pet. `403` if not owner, `404` if pet doesn’t exist
 `DELETE /api/pets/<id>/`
 
 Owner only. Returns `204` on success. `403` if not owner, `404` if pet doesn’t exist.
+
+---
+
+## Moderation reports (`/api/moderation-reports/`)
+
+All endpoints require authentication.
+
+### List reports
+
+`GET /api/moderation-reports/`
+
+- **Non-staff:** returns only reports created by the current user.
+- **Staff:** returns all reports.
+
+Query params (optional):
+
+| Param | Description |
+|-------|-------------|
+| `pet` | Filter by pet id (integer). |
+
+Returns `200` with an array of report objects: `id`, `reporter_user`, `pet`, `asset`, `reason`, `details`, `status`, `created_at`, `resolved_at`.
+
+### Create report
+
+`POST /api/moderation-reports/`
+
+Body (JSON): at least one of `pet_id` or `asset_id` is required.
+
+| Field    | Type   | Required |
+|----------|--------|----------|
+| reason   | string | yes      |
+| details  | string | no       |
+| pet_id   | int    | no (one of pet_id / asset_id required) |
+| asset_id | int    | no       |
+
+`reporter_user` is set from the current user. Returns `201` with the created report. `400` if validation fails.
+
+### Get one report
+
+`GET /api/moderation-reports/<id>/`
+
+Reporter or staff only. Returns `200` with the report object or `404`.
+
+### Update report (staff only)
+
+`PATCH /api/moderation-reports/<id>/`
+
+Body can include: `status`, `resolved_at`. Returns `200` with updated report. `403` if not staff.
+
+### Delete report (staff only)
+
+`DELETE /api/moderation-reports/<id>/`
+
+Returns `204` on success. `403` if not staff.
+
+---
+
+## Admin (`/api/admin/`)
+
+All endpoints require authentication and **superuser** (`is_superuser`).
+
+### List users
+
+`GET /api/admin/users/`
+
+Returns `200` with an array of user objects: `id`, `email`, `username`, `display_name`, `is_active`, `is_staff`, `is_superuser`, `created_at`.
+
+### Get one user
+
+`GET /api/admin/users/<id>/`
+
+Returns `200` with the user object or `404`.
+
+### Update user
+
+`PATCH /api/admin/users/<id>/`
+
+Body can include: `email`, `username`, `display_name`, `is_active`, `is_staff`, `is_superuser`. Returns `200` with updated user. Email and username must be unique (excluding the user being updated).
+
+### Delete user
+
+`DELETE /api/admin/users/<id>/`
+
+Returns `204` on success. Cannot delete your own account (`400`).
+
+---
+
+## Pets – admin list
+
+`GET /api/pets/?scope=all`
+
+Superuser only. Returns all pets (including private and archived). Same response shape as list pets.

@@ -17,6 +17,10 @@ def _is_owner(pet, user):
     return user is not None and user.is_authenticated and pet.owner_id == user.id
 
 
+def _can_modify_pet(pet, user):
+    return _is_owner(pet, user) or (user is not None and user.is_authenticated and user.is_staff)
+
+
 class PetListCreateView(APIView):
     #scope=mine requires auth, scope=public lists public pets). 
 
@@ -33,6 +37,13 @@ class PetListCreateView(APIView):
             qs = Pet.objects.filter(owner=request.user).order_by("-updated_at")
         elif scope == "public":
             qs = Pet.objects.filter(visibility=Pet.Visibility.PUBLIC, is_archived=False).order_by("-updated_at")
+        elif scope == "all":
+            if not request.user.is_authenticated or not request.user.is_superuser:
+                return Response(
+                    {"detail": "Only administrators can list all pets."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            qs = Pet.objects.all().order_by("-updated_at")
         else:
             # Default for authenticated: my pets. For anonymous: require scope=public
             if request.user.is_authenticated:
@@ -67,8 +78,8 @@ class PetDetailView(APIView):
             pet = Pet.objects.get(pk=pk)
         except Pet.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        if not _is_owner(pet, request.user):
-            return Response({"detail": "Only the owner can update this pet."}, status=status.HTTP_403_FORBIDDEN)
+        if not _can_modify_pet(pet, request.user):
+            return Response({"detail": "Only the owner or a moderator can update this pet."}, status=status.HTTP_403_FORBIDDEN)
         serializer = PetUpdateSerializer(pet, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         pet = serializer.save()
@@ -79,7 +90,7 @@ class PetDetailView(APIView):
             pet = Pet.objects.get(pk=pk)
         except Pet.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        if not _is_owner(pet, request.user):
-            return Response({"detail": "Only the owner can delete this pet."}, status=status.HTTP_403_FORBIDDEN)
+        if not _can_modify_pet(pet, request.user):
+            return Response({"detail": "Only the owner or a moderator can delete this pet."}, status=status.HTTP_403_FORBIDDEN)
         pet.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

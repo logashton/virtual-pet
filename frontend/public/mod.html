@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moderation – Pet Project</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .mod-page { max-width: 900px; margin: 0 auto; padding: 20px; }
+        .mod-page h1 { margin-bottom: 8px; }
+        .mod-page h2 { margin: 24px 0 12px; font-size: 1.1rem; }
+        .back { display: inline-block; margin-bottom: 16px; color: #007bff; text-decoration: none; }
+        .back:hover { text-decoration: underline; }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px; margin-bottom: 8px; font-size: 13px; }
+        .btn.primary { background: #007bff; color: white; }
+        .btn.primary:hover { background: #0056b3; }
+        .btn.danger { background: #dc3545; color: white; }
+        .btn.danger:hover { background: #c82333; }
+        .btn.secondary { background: #6c757d; color: white; }
+        .btn.secondary:hover { background: #545b62; }
+        .report-card { border: 1px solid #ddd; border-radius: 6px; padding: 14px; margin-bottom: 12px; background: #fff; }
+        .report-card .reason { font-weight: bold; margin-bottom: 4px; }
+        .report-card .meta { color: #666; font-size: 0.9em; margin-bottom: 8px; }
+        .report-card .details { margin-bottom: 10px; white-space: pre-wrap; font-size: 0.95em; }
+        .report-card .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .api-result { background: #f5f5f5; padding: 12px; border-radius: 4px; font-size: 12px; white-space: pre-wrap; max-height: 200px; overflow-y: auto; margin-top: 12px; }
+        .api-result.error { background: #f8d7da; color: #721c24; }
+        .api-result.ok { background: #d4edda; color: #155724; }
+        .section-note { color: #666; font-size: 0.9em; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Pet Project</h1>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/pets/">Pets</a>
+            <span id="nav-mod-wrap"><a href="/mod/">Mod</a></span>
+            <span id="nav-admin-wrap" style="display: none;"><a href="/manage/">Admin</a></span>
+            <span id="nav-login-wrap"><a href="/auth/">Login / Register</a></span>
+            <span id="nav-user-wrap" style="display: none;"><span id="nav-user-name"></span> <a href="#" id="nav-signout">Sign out</a></span>
+        </nav>
+    </header>
+
+    <div class="mod-page">
+        <a href="/" class="back">← Back to home</a>
+        <h1>Moderation</h1>
+        <p class="section-note">Manage open reports. Resolve or reject reports; hide a pet (make private + archived) or delete it if it violates policy.</p>
+
+        <div id="mod-forbidden" style="display: none;">
+            <p>You must be logged in as a moderator to view this page.</p>
+            <a href="/auth/">Log in</a>
+        </div>
+
+        <div id="mod-content" style="display: none;">
+            <h2>Active reports (open)</h2>
+            <button type="button" class="btn primary" id="btn-load-reports">Load active reports</button>
+            <div id="result-reports" class="api-result" style="display: none;"></div>
+            <div id="reports-list"></div>
+        </div>
+    </div>
+
+    <script>
+(function () {
+    var token = localStorage.getItem('authToken');
+    var userIsStaff = false;
+    var navLoginWrap = document.getElementById('nav-login-wrap');
+    var navUserWrap = document.getElementById('nav-user-wrap');
+    var navUserName = document.getElementById('nav-user-name');
+    var navSignOut = document.getElementById('nav-signout');
+    var modForbidden = document.getElementById('mod-forbidden');
+    var modContent = document.getElementById('mod-content');
+
+    function setNavLoggedIn(displayName) {
+        if (navLoginWrap) navLoginWrap.style.display = 'none';
+        if (navUserWrap) navUserWrap.style.display = 'inline';
+        if (navUserName) navUserName.textContent = displayName || 'You';
+    }
+    function setNavLoggedOut() {
+        if (navUserWrap) navUserWrap.style.display = 'none';
+        if (navLoginWrap) navLoginWrap.style.display = 'inline';
+    }
+    navSignOut.addEventListener('click', function (e) {
+        e.preventDefault();
+        localStorage.removeItem('authToken');
+        setNavLoggedOut();
+        window.location.reload();
+    });
+
+    function authHeaders() {
+        var h = { 'Content-Type': 'application/json' };
+        if (token) h['Authorization'] = 'Token ' + token;
+        return h;
+    }
+
+    function showResult(elId, text, isError) {
+        var el = document.getElementById(elId);
+        if (!el) return;
+        el.textContent = text;
+        el.className = 'api-result' + (isError ? ' error' : ' ok');
+        el.style.display = 'block';
+    }
+
+    if (!token) {
+        modForbidden.style.display = 'block';
+        modContent.style.display = 'none';
+        setNavLoggedOut();
+    } else {
+        fetch('/api/auth/me/', { headers: { 'Authorization': 'Token ' + token } })
+            .then(function (r) { if (r.ok) return r.json(); return null; })
+            .then(function (data) {
+                if (data) {
+                    userIsStaff = !!data.is_staff;
+                    var name = (data.display_name && data.display_name.trim()) ? data.display_name.trim() : (data.username || '');
+                    setNavLoggedIn(name);
+                    if (userIsStaff) {
+                        modForbidden.style.display = 'none';
+                        modContent.style.display = 'block';
+                    } else {
+                        modForbidden.style.display = 'block';
+                        modContent.style.display = 'none';
+                    }
+                } else {
+                    modForbidden.style.display = 'block';
+                    modContent.style.display = 'none';
+                    setNavLoggedOut();
+                }
+                var modWrap = document.getElementById('nav-mod-wrap');
+                if (modWrap) modWrap.style.display = (data && data.is_staff) ? 'inline' : 'none';
+                var adminWrap = document.getElementById('nav-admin-wrap');
+                if (adminWrap) adminWrap.style.display = (data && data.is_superuser) ? 'inline' : 'none';
+            })
+            .catch(function () {
+                modForbidden.style.display = 'block';
+                modContent.style.display = 'none';
+                setNavLoggedOut();
+            });
+    }
+
+    function renderReports(data) {
+        var container = document.getElementById('reports-list');
+        container.innerHTML = '';
+        if (!Array.isArray(data) || data.length === 0) {
+            container.innerHTML = '<p class="section-note">No open reports.</p>';
+            return;
+        }
+        data.forEach(function (r) {
+            var card = document.createElement('div');
+            card.className = 'report-card';
+            var reason = (r.reason || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            var details = (r.details || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            var petId = r.pet || null;
+            var viewLink = petId ? '<a href="/pets/?view=' + petId + '" class="btn secondary">View pet</a>' : '<span class="btn secondary" disabled>No pet</span>';
+            card.innerHTML =
+                '<div class="reason">Report #' + r.id + ': ' + reason + '</div>' +
+                '<div class="meta">Pet: ' + (petId || '–') + ' · Reporter: ' + (r.reporter_user || '–') + ' · ' + (r.created_at || '') + '</div>' +
+                (details ? '<div class="details">' + details + '</div>' : '') +
+                '<div class="actions">' +
+                viewLink + ' ' +
+                '<button type="button" class="btn primary resolve-btn" data-report-id="' + r.id + '">Resolve</button>' +
+                '<button type="button" class="btn secondary reject-btn" data-report-id="' + r.id + '">Reject</button>' +
+                (petId ? '<button type="button" class="btn danger hide-pet-btn" data-pet-id="' + petId + '" data-report-id="' + r.id + '">Hide pet</button>' : '') +
+                (petId ? '<button type="button" class="btn danger delete-pet-btn" data-pet-id="' + petId + '" data-report-id="' + r.id + '">Delete pet</button>' : '') +
+                '</div>';
+            container.appendChild(card);
+        });
+
+        container.querySelectorAll('.resolve-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var id = this.getAttribute('data-report-id');
+                fetch('/api/moderation-reports/' + id + '/', {
+                    method: 'PATCH',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ status: 'resolved' })
+                })
+                    .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+                    .then(function (x) {
+                        if (x.ok) document.getElementById('btn-load-reports').click();
+                        else showResult('result-reports', x.data.detail || JSON.stringify(x.data), true);
+                    });
+            });
+        });
+        container.querySelectorAll('.reject-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var id = this.getAttribute('data-report-id');
+                fetch('/api/moderation-reports/' + id + '/', {
+                    method: 'PATCH',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ status: 'rejected' })
+                })
+                    .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+                    .then(function (x) {
+                        if (x.ok) document.getElementById('btn-load-reports').click();
+                        else showResult('result-reports', x.data.detail || JSON.stringify(x.data), true);
+                    });
+            });
+        });
+        container.querySelectorAll('.hide-pet-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var petId = this.getAttribute('data-pet-id');
+                var reportId = this.getAttribute('data-report-id');
+                if (!confirm('Hide pet #' + petId + '? (Make private and archived so it no longer appears in public.)')) return;
+                fetch('/api/pets/' + petId + '/', {
+                    method: 'PATCH',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ visibility: 'private', is_archived: true })
+                })
+                    .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, status: res.status, data: d }; }); })
+                    .then(function (x) {
+                        if (x.ok) {
+                            showResult('result-reports', 'Pet hidden.', false);
+                            document.getElementById('btn-load-reports').click();
+                        } else {
+                            showResult('result-reports', x.data.detail || JSON.stringify(x.data), true);
+                        }
+                    });
+            });
+        });
+        container.querySelectorAll('.delete-pet-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var petId = this.getAttribute('data-pet-id');
+                if (!confirm('Permanently delete pet #' + petId + '? This cannot be undone.')) return;
+                fetch('/api/pets/' + petId + '/', { method: 'DELETE', headers: authHeaders() })
+                    .then(function (res) {
+                        if (res.status === 204) {
+                            showResult('result-reports', 'Pet deleted.', false);
+                            document.getElementById('btn-load-reports').click();
+                        } else {
+                            return res.json().then(function (d) {
+                                showResult('result-reports', d.detail || JSON.stringify(d), true);
+                            });
+                        }
+                    });
+            });
+        });
+    }
+
+    document.getElementById('btn-load-reports').addEventListener('click', function () {
+        var resultEl = document.getElementById('result-reports');
+        resultEl.style.display = 'block';
+        resultEl.textContent = 'Loading…';
+        fetch('/api/moderation-reports/?status=open', { headers: authHeaders() })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
+            .then(function (res) {
+                resultEl.textContent = 'Status ' + res.status + (res.ok ? ' · ' + (Array.isArray(res.data) ? res.data.length + ' report(s)' : '') : '\n' + JSON.stringify(res.data, null, 2));
+                resultEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
+                if (res.ok && Array.isArray(res.data)) renderReports(res.data);
+                else if (res.ok) renderReports([]);
+            });
+    });
+})();
+    </script>
+</body>
+</html>
