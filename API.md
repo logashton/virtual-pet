@@ -84,14 +84,59 @@ Returns `200` with the pet object or `404`.
 
 `PATCH /api/pets/<id>/`
 
-Owner only. Body can include any of: `name`, `visibility`, `is_archived` (partial update).  
-Returns `200` with updated pet. `403` if not owner, `404` if pet doesn’t exist.
+Owner or staff (moderator/admin). Body can include any of: `name`, `visibility`, `is_archived` (partial update).  
+Returns `200` with updated pet. `403` if not allowed, `404` if pet doesn’t exist.
 
 ### Delete pet
 
 `DELETE /api/pets/<id>/`
 
-Owner only. Returns `204` on success. `403` if not owner, `404` if pet doesn’t exist.
+Owner or staff (moderator/admin). Returns `204` on success. `403` if not allowed, `404` if pet doesn’t exist.
+
+### Upload pet image
+
+`POST /api/pets/<id>/upload/`
+
+Requires auth. Owner or staff only.
+
+Body: `multipart/form-data` with file field:
+
+| Field | Type | Required |
+|-------|------|----------|
+| image | file | yes      |
+
+Returns `201` with uploaded asset metadata:
+`{ "id", "pet_id", "original_image_url", "status" }`.  
+`400` if file missing, `403` if forbidden, `404` if pet not found.
+
+### Pet personality
+
+`GET /api/pets/<id>/personality/`
+
+- For `private` pets: owner only (`404` for others).
+- For `public` / `unlisted`: readable by anyone.
+
+Returns:
+`{ "self_concept", "traits": [], "tone", "roleplay_prompt", "updated_at", "valid_tones", "valid_traits" }`
+
+`PATCH /api/pets/<id>/personality/`
+
+Owner only. Creates or updates personality fields.
+
+Patchable fields:
+
+| Field            | Type         |
+|------------------|--------------|
+| self_concept     | string       |
+| traits           | string array |
+| tone             | string       |
+| roleplay_prompt  | string       |
+
+Returns updated personality object. `400` for invalid tone/traits.
+
+`DELETE /api/pets/<id>/personality/`
+
+Owner only. Resets/deletes personality row. Returns `204`.
 
 ---
 
@@ -111,6 +156,7 @@ Query params (optional):
 | Param | Description |
 |-------|-------------|
 | `pet` | Filter by pet id (integer). |
+| `status` | Filter by report status: `open`, `resolved`, `rejected`. |
 
 Returns `200` with an array of report objects: `id`, `reporter_user`, `pet`, `asset`, `reason`, `details`, `status`, `created_at`, `resolved_at`.
 
@@ -184,3 +230,79 @@ Returns `204` on success. Cannot delete your own account (`400`).
 `GET /api/pets/?scope=all`
 
 Superuser only. Returns all pets (including private and archived). Same response shape as list pets.
+
+---
+
+## Pet Stats & Actions (`/api/pets/<id>/...`)
+
+### Get stats
+
+`GET /api/pets/<id>/stats/`
+
+- For `private` pets: owner only (`404` for others).
+- For `public` / `unlisted`: readable by anyone.
+
+Returns current stats object:
+`{ "hunger", "energy", "happiness", "cleanliness", "health", "level", "experience" }`
+
+### Trigger action
+
+`POST /api/pets/<id>/action/`
+
+Body (JSON):
+
+| Field  | Type   | Required |
+|--------|--------|----------|
+| action | string | yes      |
+
+Valid action values: `feed`, `play`, `clean`, `rest`.
+
+Returns:
+`{ "reaction", "stats", "changes", "is_owner" }`
+
+`400` for unknown action, `404` if pet is missing/not visible.
+
+---
+
+## Chat API (`/chat/`)
+
+### Get system personality prompt
+
+`GET /chat/personality/<pet_id>/`
+
+Returns:
+`{ "pet_name", "personality" }`
+
+Private pets are owner-only; public/unlisted are readable.
+
+### Placeholder personality endpoint
+
+`GET /chat/personality/`
+
+Returns a basic placeholder payload currently used by the frontend:
+`{ "prompt": "Virtual pet personality" }`
+
+### Chat history / send message
+
+`GET /chat/api/<pet_id>/`
+
+- If authenticated: returns your latest session history with that pet.
+- If unauthenticated: returns `{ "session_id": null, "messages": [] }`.
+
+`POST /chat/api/<pet_id>/`
+
+Body (JSON):
+
+| Field      | Type    | Required |
+|------------|---------|----------|
+| message    | string  | yes*     |
+| action     | string  | no       |
+| regenerate | boolean | no       |
+
+\* `message` can be omitted only when `action` is provided and is one of `feed`, `play`, `clean`, `rest` (the backend generates a message template).
+
+Response:
+`{ "reply", "session_id", "stats", "keyword_action", "stat_changes", "is_owner" }`
+
+If `regenerate=true` (authenticated only), response includes:
+`{ ..., "regenerated": true }`

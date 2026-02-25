@@ -1,527 +1,152 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin – Pet Project</title>
-    <link rel="stylesheet" href="/static/styles.css">
-    <style>
-        .manage-page { max-width: 1000px; margin: 0 auto; padding: 20px; }
-        .manage-page h1 { margin-bottom: 8px; }
-        .manage-page h2 { margin: 24px 0 12px; font-size: 1.1rem; }
-        .back { display: inline-block; margin-bottom: 16px; color: #007bff; text-decoration: none; }
-        .back:hover { text-decoration: underline; }
-        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px; margin-bottom: 8px; font-size: 13px; }
-        .btn.primary { background: #007bff; color: white; }
-        .btn.primary:hover { background: #0056b3; }
-        .btn.danger { background: #dc3545; color: white; }
-        .btn.danger:hover { background: #c82333; }
-        .btn.secondary { background: #6c757d; color: white; }
-        .btn.secondary:hover { background: #545b62; }
-        .btn.small { padding: 4px 10px; font-size: 12px; }
-        .section-note { color: #666; font-size: 0.9em; margin-bottom: 8px; }
-        .api-result { background: #f5f5f5; padding: 12px; border-radius: 4px; font-size: 12px; white-space: pre-wrap; max-height: 180px; overflow-y: auto; margin-top: 8px; }
-        .api-result.error { background: #f8d7da; color: #721c24; }
-        .api-result.ok { background: #d4edda; color: #155724; }
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; background: #fff; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background: #f0f0f0; font-size: 12px; }
-        .report-card { border: 1px solid #ddd; border-radius: 6px; padding: 14px; margin-bottom: 12px; background: #fff; }
-        .report-card .reason { font-weight: bold; margin-bottom: 4px; }
-        .report-card .meta { color: #666; font-size: 0.9em; margin-bottom: 8px; }
-        .report-card .details { margin-bottom: 10px; white-space: pre-wrap; font-size: 0.95em; }
-        .report-card .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-        .modal { display: none; position: fixed; z-index: 10; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); }
-        .modal.show { display: flex; align-items: center; justify-content: center; }
-        .modal-content { background: white; padding: 24px; border-radius: 8px; max-width: 400px; width: 90%; }
-        .modal-content h3 { margin-bottom: 16px; }
-        .modal-content .form-row { margin-bottom: 12px; }
-        .modal-content label { display: block; margin-bottom: 4px; font-weight: bold; }
-        .modal-content input[type="text"], .modal-content input[type="email"], .modal-content select { width: 100%; padding: 8px; }
-        .modal-content input[type="checkbox"] { margin-right: 8px; }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>Pet Project</h1>
-        <nav>
-            <a href="/">Home</a>
-            <a href="/pets/">Pets</a>
-            <span id="nav-mod-wrap" style="display: none;"><a href="/mod/">Mod</a></span>
-            <span id="nav-admin-wrap" style="display: none;"><a href="/manage/">Admin</a></span>
-            <span id="nav-login-wrap"><a href="/auth/">Login / Register</a></span>
-            <span id="nav-user-wrap" style="display: none;"><span id="nav-user-name"></span> <a href="#" id="nav-signout">Sign out</a></span>
-        </nav>
-    </header>
+{% extends "discover_base.html" %}
 
-    <div class="manage-page">
-        <a href="/" class="back">← Back to home</a>
-        <h1>Admin</h1>
-        <p class="section-note">Manage users, pets, and reports. Only superusers can access this page.</p>
+{% block page_title %}Admin - Pet Project{% endblock %}
+{% block topbar_class %} with-back{% endblock %}
+{% block topbar_leading %}<a class="back-home" href="{% url 'home' %}" aria-label="Back to home">←</a>{% endblock %}
+{% block topbar_middle %}<h1 style="margin:0;color:#f5f5f9;">Admin Control</h1>{% endblock %}
+{% block topbar_trailing %}{% endblock %}
 
-        <div id="manage-forbidden" style="display: none;">
-            <p>You must be logged in as an administrator to view this page.</p>
-            <a href="/auth/">Log in</a>
-        </div>
+{% block main_prefix %}
+<style>
+  .admin-wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 16px; }
+  .panel { background: #1f1f27; border: 1px solid #353546; border-radius: 12px; padding: 14px; }
+  .panel h2 { margin: 0 0 12px; color: #f2f2f8; }
+  .user-card, .report-card { background: #24242d; border: 1px solid #3b3b47; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .meta { color: #9ea2ba; }
+  .form-grid { display: grid; gap: 8px; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  input[type="text"], input[type="email"], select {
+    background: #1f1f27;
+    color: #f3f3f9;
+    border: 1px solid #3b3b47;
+    border-radius: 8px;
+    padding: 7px 9px;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border-bottom: 1px solid #333542; padding: 10px 8px; text-align: left; vertical-align: top; }
+  th { color: #b4b8cd; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  td { color: #e2e4ef; }
+  .muted { color: #9ea2ba; margin: 0 0 8px; }
+  .btn {
+    border-radius: 8px;
+    padding: 7px 11px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    color: #fff;
+    font-size: 0.8rem;
+  }
+  .btn.primary { background: #3f3f68; border-color: #6464a7; }
+  .btn.primary:hover { background: #505088; }
+  .btn.secondary { background: #4d7d5a; border-color: #5f9a6f; }
+  .btn.secondary:hover { background: #5c946b; }
+  .btn.danger { background: #7b3a45; border-color: #a2515f; }
+  .btn.danger:hover { background: #944551; }
+  .empty { color: #a5a5b1; }
+</style>
+{% endblock %}
 
-        <div id="manage-content" style="display: none;">
-            <!-- Users -->
-            <h2>Users</h2>
-            <button type="button" class="btn primary" id="btn-load-users">Load users</button>
-            <div id="result-users" class="api-result" style="display: none;"></div>
-            <div id="users-table-wrap" style="overflow-x: auto;"></div>
+{% block main_content %}
+<div class="admin-wrap">
+  <section class="panel">
+    <h2>Users</h2>
+    {% for u in users %}
+      <div class="user-card">
+        <form method="post" class="form-grid">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_user">
+          <input type="hidden" name="user_id" value="{{ u.id }}">
+          <strong>#{{ u.id }} · {{ u.username }}</strong>
+          <label>Email</label>
+          <input type="email" name="email" value="{{ u.email }}" required>
+          <label>Username</label>
+          <input type="text" name="username" value="{{ u.username }}" required>
+          <label>Display name</label>
+          <input type="text" name="display_name" value="{{ u.display_name|default:'' }}">
+          <div class="row">
+            <label><input type="checkbox" name="is_active" {% if u.is_active %}checked{% endif %}> active</label>
+            <label><input type="checkbox" name="is_staff" {% if u.is_staff %}checked{% endif %}> mod</label>
+            <label><input type="checkbox" name="is_superuser" {% if u.is_superuser %}checked{% endif %}> admin</label>
+          </div>
+          <div class="row">
+            <button class="btn primary" type="submit">Save user</button>
+          </div>
+        </form>
+        <form method="post" onsubmit="return confirm('Delete user {{ u.username }}?');" style="margin-top:8px;">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="delete_user">
+          <input type="hidden" name="user_id" value="{{ u.id }}">
+          <button class="btn danger" type="submit">Delete user</button>
+        </form>
+      </div>
+    {% empty %}
+      <p class="empty">No users.</p>
+    {% endfor %}
+  </section>
 
-            <!-- Pets -->
-            <h2>All pets</h2>
-            <button type="button" class="btn primary" id="btn-load-pets">Load all pets</button>
-            <div id="result-pets" class="api-result" style="display: none;"></div>
-            <div id="pets-table-wrap" style="overflow-x: auto;"></div>
-
-            <!-- Reports -->
-            <h2>Active reports</h2>
-            <button type="button" class="btn primary" id="btn-load-reports">Load active reports</button>
-            <div id="result-reports" class="api-result" style="display: none;"></div>
-            <div id="reports-list"></div>
-        </div>
-    </div>
-
-    <div id="user-modal" class="modal">
-        <div class="modal-content">
-            <h3>Edit user</h3>
-            <input type="hidden" id="edit-user-id">
-            <div class="form-row">
-                <label>Email</label>
-                <input type="email" id="edit-user-email" maxlength="255">
-            </div>
-            <div class="form-row">
-                <label>Username</label>
-                <input type="text" id="edit-user-username" maxlength="50">
-            </div>
-            <div class="form-row">
-                <label>Display name</label>
-                <input type="text" id="edit-user-display-name" maxlength="80">
-            </div>
-            <div class="form-row">
-                <label><input type="checkbox" id="edit-user-is-active"> Active</label>
-            </div>
-            <div class="form-row">
-                <label><input type="checkbox" id="edit-user-is-staff"> Moderator</label>
-            </div>
-            <div class="form-row">
-                <label><input type="checkbox" id="edit-user-is-superuser"> Admin</label>
-            </div>
-            <div style="margin-top: 16px;">
-                <button type="button" class="btn primary" id="btn-save-user">Save</button>
-                <button type="button" class="btn secondary" id="btn-close-modal">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="pet-modal" class="modal">
-        <div class="modal-content">
-            <h3>Edit pet</h3>
-            <input type="hidden" id="edit-pet-id">
-            <div class="form-row">
-                <label>Name</label>
-                <input type="text" id="edit-pet-name" maxlength="60">
-            </div>
-            <div class="form-row">
-                <label>Visibility</label>
-                <select id="edit-pet-visibility">
-                    <option value="private">private</option>
-                    <option value="public">public</option>
-                    <option value="unlisted">unlisted</option>
+  <section class="panel">
+    <h2>Pets</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Owner</th><th>Edit</th><th>Delete</th></tr></thead>
+      <tbody>
+        {% for pet in pets %}
+          <tr>
+            <td>{{ pet.id }}</td>
+            <td>{{ pet.owner.display_name|default:pet.owner.username }}</td>
+            <td>
+              <form method="post" class="row">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_pet">
+                <input type="hidden" name="pet_id" value="{{ pet.id }}">
+                <input type="text" name="name" value="{{ pet.name }}" required>
+                <select name="visibility">
+                  <option value="private" {% if pet.visibility == 'private' %}selected{% endif %}>private</option>
+                  <option value="public" {% if pet.visibility == 'public' %}selected{% endif %}>public</option>
+                  <option value="unlisted" {% if pet.visibility == 'unlisted' %}selected{% endif %}>unlisted</option>
                 </select>
-            </div>
-            <div class="form-row">
-                <label><input type="checkbox" id="edit-pet-is-archived"> Archived</label>
-            </div>
-            <div style="margin-top: 16px;">
-                <button type="button" class="btn primary" id="btn-save-pet">Save</button>
-                <button type="button" class="btn secondary" id="btn-close-pet-modal">Cancel</button>
-            </div>
-        </div>
-    </div>
+                <label><input type="checkbox" name="is_archived" {% if pet.is_archived %}checked{% endif %}> archived</label>
+                <button class="btn primary" type="submit">Save</button>
+              </form>
+            </td>
+            <td>
+              <form method="post" onsubmit="return confirm('Delete pet {{ pet.name }}?');">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete_pet">
+                <input type="hidden" name="pet_id" value="{{ pet.id }}">
+                <button class="btn danger" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
 
-    <script>
-(function () {
-    var token = localStorage.getItem('authToken');
-    var userIsAdmin = false;
-    var navLoginWrap = document.getElementById('nav-login-wrap');
-    var navUserWrap = document.getElementById('nav-user-wrap');
-    var navUserName = document.getElementById('nav-user-name');
-    var navSignOut = document.getElementById('nav-signout');
-    var modWrap = document.getElementById('nav-mod-wrap');
-    var adminWrap = document.getElementById('nav-admin-wrap');
-    var manageForbidden = document.getElementById('manage-forbidden');
-    var manageContent = document.getElementById('manage-content');
-
-    function setNavLoggedIn(displayName) {
-        if (navLoginWrap) navLoginWrap.style.display = 'none';
-        if (navUserWrap) navUserWrap.style.display = 'inline';
-        if (navUserName) navUserName.textContent = displayName || 'You';
-    }
-    function setNavLoggedOut() {
-        if (navUserWrap) navUserWrap.style.display = 'none';
-        if (navLoginWrap) navLoginWrap.style.display = 'inline';
-    }
-    navSignOut.addEventListener('click', function (e) {
-        e.preventDefault();
-        localStorage.removeItem('authToken');
-        setNavLoggedOut();
-        window.location.reload();
-    });
-
-    function authHeaders() {
-        var h = { 'Content-Type': 'application/json' };
-        if (token) h['Authorization'] = 'Token ' + token;
-        return h;
-    }
-
-    function showResult(elId, text, isError) {
-        var el = document.getElementById(elId);
-        if (!el) return;
-        el.textContent = text;
-        el.className = 'api-result' + (isError ? ' error' : ' ok');
-        el.style.display = 'block';
-    }
-
-    if (!token) {
-        manageForbidden.style.display = 'block';
-        manageContent.style.display = 'none';
-        setNavLoggedOut();
-    } else {
-        fetch('/api/auth/me/', { headers: { 'Authorization': 'Token ' + token } })
-            .then(function (r) { if (r.ok) return r.json(); return null; })
-            .then(function (data) {
-                if (data) {
-                    userIsAdmin = !!data.is_superuser;
-                    var name = (data.display_name && data.display_name.trim()) ? data.display_name.trim() : (data.username || '');
-                    setNavLoggedIn(name);
-                    if (userIsAdmin) {
-                        manageForbidden.style.display = 'none';
-                        manageContent.style.display = 'block';
-                    } else {
-                        manageForbidden.style.display = 'block';
-                        manageContent.style.display = 'none';
-                    }
-                } else {
-                    manageForbidden.style.display = 'block';
-                    manageContent.style.display = 'none';
-                    setNavLoggedOut();
-                }
-                if (modWrap) modWrap.style.display = (data && data.is_staff) ? 'inline' : 'none';
-                if (adminWrap) adminWrap.style.display = (data && data.is_superuser) ? 'inline' : 'none';
-            })
-            .catch(function () {
-                manageForbidden.style.display = 'block';
-                manageContent.style.display = 'none';
-                setNavLoggedOut();
-            });
-    }
-
-    // --- Users ---
-    function renderUsers(data) {
-        var wrap = document.getElementById('users-table-wrap');
-        wrap.innerHTML = '';
-        if (!Array.isArray(data) || data.length === 0) {
-            wrap.innerHTML = '<p class="section-note">No users.</p>';
-            return;
-        }
-        var table = document.createElement('table');
-        table.innerHTML = '<thead><tr><th>ID</th><th>Email</th><th>Username</th><th>Display name</th><th>Active</th><th>Mod</th><th>Admin</th><th>Actions</th></tr></thead><tbody></tbody>';
-        var tbody = table.querySelector('tbody');
-        data.forEach(function (u) {
-            var tr = document.createElement('tr');
-            tr.innerHTML =
-                '<td>' + u.id + '</td>' +
-                '<td>' + (u.email || '').replace(/</g, '&lt;') + '</td>' +
-                '<td>' + (u.username || '').replace(/</g, '&lt;') + '</td>' +
-                '<td>' + (u.display_name || '–').replace(/</g, '&lt;') + '</td>' +
-                '<td>' + (u.is_active ? 'Yes' : 'No') + '</td>' +
-                '<td>' + (u.is_staff ? 'Yes' : 'No') + '</td>' +
-                '<td>' + (u.is_superuser ? 'Yes' : 'No') + '</td>' +
-                '<td>' +
-                '<button type="button" class="btn small primary edit-user-btn" data-id="' + u.id + '">Edit</button> ' +
-                '<button type="button" class="btn small secondary set-inactive-btn" data-id="' + u.id + '" data-active="' + (u.is_active ? '1' : '0') + '">' + (u.is_active ? 'Set inactive' : 'Set active') + '</button> ' +
-                '<button type="button" class="btn small secondary set-mod-btn" data-id="' + u.id + '" data-staff="' + (u.is_staff ? '1' : '0') + '">' + (u.is_staff ? 'Remove mod' : 'Set mod') + '</button> ' +
-                '<button type="button" class="btn small danger delete-user-btn" data-id="' + u.id + '">Delete</button>' +
-                '</td>';
-            tbody.appendChild(tr);
-        });
-        wrap.appendChild(table);
-
-        wrap.querySelectorAll('.edit-user-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var id = this.getAttribute('data-id');
-                var u = data.find(function (x) { return String(x.id) === String(id); });
-                if (!u) return;
-                document.getElementById('edit-user-id').value = u.id;
-                document.getElementById('edit-user-email').value = u.email || '';
-                document.getElementById('edit-user-username').value = u.username || '';
-                document.getElementById('edit-user-display-name').value = u.display_name || '';
-                document.getElementById('edit-user-is-active').checked = !!u.is_active;
-                document.getElementById('edit-user-is-staff').checked = !!u.is_staff;
-                document.getElementById('edit-user-is-superuser').checked = !!u.is_superuser;
-                document.getElementById('user-modal').classList.add('show');
-            });
-        });
-        wrap.querySelectorAll('.set-inactive-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var id = this.getAttribute('data-id');
-                var active = this.getAttribute('data-active') === '1';
-                var newActive = !active;
-                if (!confirm((newActive ? 'Activate' : 'Deactivate') + ' this user?')) return;
-                fetch('/api/admin/users/' + id + '/', { method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ is_active: newActive }) })
-                    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-                    .then(function (x) {
-                        if (x.ok) document.getElementById('btn-load-users').click();
-                        else showResult('result-users', x.data.detail || JSON.stringify(x.data), true);
-                    });
-            });
-        });
-        wrap.querySelectorAll('.set-mod-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var id = this.getAttribute('data-id');
-                var staff = this.getAttribute('data-staff') === '1';
-                var newStaff = !staff;
-                if (!confirm((newStaff ? 'Grant' : 'Revoke') + ' moderator role?')) return;
-                fetch('/api/admin/users/' + id + '/', { method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ is_staff: newStaff }) })
-                    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-                    .then(function (x) {
-                        if (x.ok) document.getElementById('btn-load-users').click();
-                        else showResult('result-users', x.data.detail || JSON.stringify(x.data), true);
-                    });
-            });
-        });
-        wrap.querySelectorAll('.delete-user-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var id = this.getAttribute('data-id');
-                if (!confirm('Permanently delete this user? This cannot be undone.')) return;
-                fetch('/api/admin/users/' + id + '/', { method: 'DELETE', headers: authHeaders() })
-                    .then(function (r) {
-                        if (r.status === 204) {
-                            document.getElementById('btn-load-users').click();
-                        } else {
-                            return r.json().then(function (d) {
-                                showResult('result-users', d.detail || JSON.stringify(d), true);
-                            });
-                        }
-                    });
-            });
-        });
-    }
-
-    document.getElementById('btn-save-user').addEventListener('click', function () {
-        var id = document.getElementById('edit-user-id').value;
-        var payload = {
-            email: document.getElementById('edit-user-email').value.trim() || undefined,
-            username: document.getElementById('edit-user-username').value.trim() || undefined,
-            display_name: document.getElementById('edit-user-display-name').value.trim() || null,
-            is_active: document.getElementById('edit-user-is-active').checked,
-            is_staff: document.getElementById('edit-user-is-staff').checked,
-            is_superuser: document.getElementById('edit-user-is-superuser').checked
-        };
-        if (payload.email === undefined) delete payload.email;
-        if (payload.username === undefined) delete payload.username;
-        fetch('/api/admin/users/' + id + '/', { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(payload) })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-            .then(function (x) {
-                if (x.ok) {
-                    document.getElementById('user-modal').classList.remove('show');
-                    document.getElementById('btn-load-users').click();
-                } else {
-                    showResult('result-users', x.data.detail || JSON.stringify(x.data), true);
-                }
-            });
-    });
-    document.getElementById('btn-close-modal').addEventListener('click', function () {
-        document.getElementById('user-modal').classList.remove('show');
-    });
-    document.getElementById('btn-close-pet-modal').addEventListener('click', function () {
-        document.getElementById('pet-modal').classList.remove('show');
-    });
-    document.getElementById('btn-save-pet').addEventListener('click', function () {
-        var id = document.getElementById('edit-pet-id').value;
-        var payload = {
-            name: document.getElementById('edit-pet-name').value.trim(),
-            visibility: document.getElementById('edit-pet-visibility').value,
-            is_archived: document.getElementById('edit-pet-is-archived').checked
-        };
-        fetch('/api/pets/' + id + '/', { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(payload) })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-            .then(function (x) {
-                if (x.ok) {
-                    document.getElementById('pet-modal').classList.remove('show');
-                    document.getElementById('btn-load-pets').click();
-                } else {
-                    showResult('result-pets', x.data.detail || (x.data.name && x.data.name[0]) || JSON.stringify(x.data), true);
-                }
-            });
-    });
-
-    document.getElementById('btn-load-users').addEventListener('click', function () {
-        var resultEl = document.getElementById('result-users');
-        resultEl.style.display = 'block';
-        resultEl.textContent = 'Loading…';
-        fetch('/api/admin/users/', { headers: authHeaders() })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
-            .then(function (res) {
-                resultEl.textContent = 'Status ' + res.status + (res.ok && Array.isArray(res.data) ? ' · ' + res.data.length + ' user(s)' : '') + (res.ok ? '' : '\n' + JSON.stringify(res.data, null, 2));
-                resultEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
-                if (res.ok && Array.isArray(res.data)) renderUsers(res.data);
-            });
-    });
-
-    // --- Pets ---
-    function renderPets(data) {
-        var wrap = document.getElementById('pets-table-wrap');
-        wrap.innerHTML = '';
-        if (!Array.isArray(data) || data.length === 0) {
-            wrap.innerHTML = '<p class="section-note">No pets.</p>';
-            return;
-        }
-        var table = document.createElement('table');
-        table.innerHTML = '<thead><tr><th>ID</th><th>Name</th><th>Owner</th><th>Visibility</th><th>Archived</th><th>Actions</th></tr></thead><tbody></tbody>';
-        var tbody = table.querySelector('tbody');
-        data.forEach(function (p) {
-            var owner = p.owner ? (p.owner.display_name || p.owner.username || p.owner.id) : '–';
-            var tr = document.createElement('tr');
-            tr.innerHTML =
-                '<td>' + p.id + '</td>' +
-                '<td>' + (p.name || '').replace(/</g, '&lt;') + '</td>' +
-                '<td>' + (owner + '').replace(/</g, '&lt;') + '</td>' +
-                '<td>' + (p.visibility || '–') + '</td>' +
-                '<td>' + (p.is_archived ? 'Yes' : 'No') + '</td>' +
-                '<td>' +
-                '<a href="/pets/?view=' + p.id + '" class="btn small secondary">View</a> ' +
-                '<button type="button" class="btn small primary edit-pet-btn" data-id="' + p.id + '">Edit</button> ' +
-                '<button type="button" class="btn small danger delete-pet-btn" data-id="' + p.id + '">Delete</button>' +
-                '</td>';
-            tbody.appendChild(tr);
-        });
-        wrap.appendChild(table);
-        wrap.querySelectorAll('.edit-pet-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var id = this.getAttribute('data-id');
-                var p = data.find(function (x) { return String(x.id) === String(id); });
-                if (!p) return;
-                document.getElementById('edit-pet-id').value = p.id;
-                document.getElementById('edit-pet-name').value = p.name || '';
-                document.getElementById('edit-pet-visibility').value = p.visibility || 'private';
-                document.getElementById('edit-pet-is-archived').checked = !!p.is_archived;
-                document.getElementById('pet-modal').classList.add('show');
-            });
-        });
-        wrap.querySelectorAll('.delete-pet-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var id = this.getAttribute('data-id');
-                if (!confirm('Permanently delete pet #' + id + '?')) return;
-                fetch('/api/pets/' + id + '/', { method: 'DELETE', headers: authHeaders() })
-                    .then(function (r) {
-                        if (r.status === 204) document.getElementById('btn-load-pets').click();
-                        else return r.json().then(function (d) { showResult('result-pets', d.detail || JSON.stringify(d), true); });
-                    });
-            });
-        });
-    }
-
-    document.getElementById('btn-load-pets').addEventListener('click', function () {
-        var resultEl = document.getElementById('result-pets');
-        resultEl.style.display = 'block';
-        resultEl.textContent = 'Loading…';
-        fetch('/api/pets/?scope=all', { headers: authHeaders() })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
-            .then(function (res) {
-                resultEl.textContent = 'Status ' + res.status + (res.ok && Array.isArray(res.data) ? ' · ' + res.data.length + ' pet(s)' : '') + (res.ok ? '' : '\n' + JSON.stringify(res.data, null, 2));
-                resultEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
-                if (res.ok && Array.isArray(res.data)) renderPets(res.data);
-            });
-    });
-
-    // --- Reports (same as Mod page) ---
-    function renderReports(data) {
-        var container = document.getElementById('reports-list');
-        container.innerHTML = '';
-        if (!Array.isArray(data) || data.length === 0) {
-            container.innerHTML = '<p class="section-note">No open reports.</p>';
-            return;
-        }
-        data.forEach(function (r) {
-            var card = document.createElement('div');
-            card.className = 'report-card';
-            var reason = (r.reason || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            var details = (r.details || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            var petId = r.pet || null;
-            var viewLink = petId ? '<a href="/pets/?view=' + petId + '" class="btn secondary">View pet</a>' : '<span class="btn secondary" disabled>No pet</span>';
-            card.innerHTML =
-                '<div class="reason">Report #' + r.id + ': ' + reason + '</div>' +
-                '<div class="meta">Pet: ' + (petId || '–') + ' · Reporter: ' + (r.reporter_user || '–') + ' · ' + (r.created_at || '') + '</div>' +
-                (details ? '<div class="details">' + details + '</div>' : '') +
-                '<div class="actions">' +
-                viewLink + ' ' +
-                '<button type="button" class="btn primary resolve-btn" data-report-id="' + r.id + '">Resolve</button>' +
-                '<button type="button" class="btn secondary reject-btn" data-report-id="' + r.id + '">Reject</button>' +
-                (petId ? '<button type="button" class="btn danger hide-pet-btn" data-pet-id="' + petId + '">Hide pet</button>' : '') +
-                (petId ? '<button type="button" class="btn danger delete-pet-btn" data-pet-id="' + petId + '">Delete pet</button>' : '') +
-                '</div>';
-            container.appendChild(card);
-        });
-        container.querySelectorAll('.resolve-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var id = this.getAttribute('data-report-id');
-                fetch('/api/moderation-reports/' + id + '/', { method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ status: 'resolved' }) })
-                    .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
-                    .then(function (x) { if (x.ok) document.getElementById('btn-load-reports').click(); else showResult('result-reports', x.data.detail || JSON.stringify(x.data), true); });
-            });
-        });
-        container.querySelectorAll('.reject-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var id = this.getAttribute('data-report-id');
-                fetch('/api/moderation-reports/' + id + '/', { method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ status: 'rejected' }) })
-                    .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
-                    .then(function (x) { if (x.ok) document.getElementById('btn-load-reports').click(); else showResult('result-reports', x.data.detail || JSON.stringify(x.data), true); });
-            });
-        });
-        container.querySelectorAll('.hide-pet-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var petId = this.getAttribute('data-pet-id');
-                if (!confirm('Hide pet #' + petId + '?')) return;
-                fetch('/api/pets/' + petId + '/', { method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ visibility: 'private', is_archived: true }) })
-                    .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
-                    .then(function (x) {
-                        if (x.ok) { showResult('result-reports', 'Pet hidden.', false); document.getElementById('btn-load-reports').click(); }
-                        else showResult('result-reports', x.data.detail || JSON.stringify(x.data), true);
-                    });
-            });
-        });
-        container.querySelectorAll('#reports-list .delete-pet-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var petId = this.getAttribute('data-pet-id');
-                if (!confirm('Permanently delete pet #' + petId + '?')) return;
-                fetch('/api/pets/' + petId + '/', { method: 'DELETE', headers: authHeaders() })
-                    .then(function (res) {
-                        if (res.status === 204) { showResult('result-reports', 'Pet deleted.', false); document.getElementById('btn-load-reports').click(); }
-                        else return res.json().then(function (d) { showResult('result-reports', d.detail || JSON.stringify(d), true); });
-                    });
-            });
-        });
-    }
-
-    document.getElementById('btn-load-reports').addEventListener('click', function () {
-        var resultEl = document.getElementById('result-reports');
-        resultEl.style.display = 'block';
-        resultEl.textContent = 'Loading…';
-        fetch('/api/moderation-reports/?status=open', { headers: authHeaders() })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
-            .then(function (res) {
-                resultEl.textContent = 'Status ' + res.status + (res.ok ? ' · ' + (Array.isArray(res.data) ? res.data.length + ' report(s)' : '') : '\n' + JSON.stringify(res.data, null, 2));
-                resultEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
-                if (res.ok && Array.isArray(res.data)) renderReports(res.data);
-                else if (res.ok) renderReports([]);
-            });
-    });
-})();
-    </script>
-</body>
-</html>
+  <section class="panel">
+    <h2>Open reports</h2>
+    {% if active_reports %}
+      {% for report in active_reports %}
+        <article class="report-card">
+          <strong>#{{ report.id }} · {{ report.reason }}</strong>
+          <p class="muted">Pet: {% if report.pet %}{{ report.pet.name }}{% else %}N/A{% endif %} · Reporter: {{ report.reporter_user|default:'Anonymous' }}</p>
+          <div class="row">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="resolve_report">
+              <input type="hidden" name="report_id" value="{{ report.id }}">
+              <button class="btn secondary" type="submit">Resolve</button>
+            </form>
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="reject_report">
+              <input type="hidden" name="report_id" value="{{ report.id }}">
+              <button class="btn primary" type="submit">Reject</button>
+            </form>
+          </div>
+        </article>
+      {% endfor %}
+    {% else %}
+      <p class="empty">No open reports.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

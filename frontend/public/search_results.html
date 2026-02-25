@@ -1,0 +1,130 @@
+{% extends "discover_base.html" %}
+
+{% block page_title %}Search - virtual-pet{% endblock %}
+{% block topbar_class %} with-back{% endblock %}
+{% block topbar_leading %}
+    <a class="back-home" href="{% url 'home' %}" aria-label="Back to home">←</a>
+{% endblock %}
+{% block search_value %}{{ query }}{% endblock %}
+
+{% block main_prefix %}
+    <style>
+        .results-meta { margin: 4px 0 18px; color: #a9a9b5; font-size: 0.9rem; }
+        .discover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+        .pet-card {
+            background: linear-gradient(180deg, #272732 0%, #1f1f27 100%);
+            border: 1px solid #353546;
+            border-radius: 14px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .pet-card .thumb {
+            height: 130px;
+            background: #23232d;
+            border-bottom: 1px solid #353546;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8e8e9a;
+            font-size: 0.8rem;
+        }
+        .pet-card .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .pet-card .body { padding: 14px; }
+        .pet-card h3 { margin: 0 0 6px; font-size: 0.95rem; color: #fff; }
+        .pet-card .meta { margin: 0; font-size: 0.82rem; color: #a9a9b5; }
+        .pet-card .desc {
+            margin: 8px 0 0;
+            font-size: 0.8rem;
+            color: #c6c6d2;
+            line-height: 1.35;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .pet-card .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+        .pet-card .tag {
+            font-size: 0.72rem;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: #323245;
+            color: #d7d7e4;
+        }
+        .pet-card .cta {
+            display: inline-block;
+            border-radius: 999px;
+            padding: 7px 11px;
+            font-size: 0.78rem;
+            text-decoration: none;
+            color: #fff;
+            background: #535385;
+            border: 1px solid #62629a;
+        }
+        .pet-card .actions-row { margin-top: 12px; display: flex; align-items: center; gap: 8px; }
+        .pet-card .cta:hover { background: #62629a; }
+        .empty-note {
+            padding: 14px;
+            border-radius: 10px;
+            border: 1px dashed #3d3d4a;
+            color: #a5a5b1;
+            background: #23232a;
+        }
+    </style>
+{% endblock %}
+
+{% block main_content %}
+    <div class="results-meta">
+        {% if query %}
+            {{ result_count }} result{{ result_count|pluralize }} for "{{ query }}"
+        {% else %}
+            Type a search to discover pets by name, traits, or backstory.
+        {% endif %}
+    </div>
+
+    {% if results %}
+        <div class="discover-grid">
+            {% for pet in results %}
+                <article class="pet-card">
+                    <div class="thumb">
+                        {% if pet.image_url %}
+                            <img src="{{ pet.image_url }}" alt="{{ pet.name }}">
+                        {% else %}
+                            No image yet
+                        {% endif %}
+                    </div>
+                    <div class="body">
+                        <h3>{{ pet.name }}</h3>
+                        <p class="meta">by {{ pet.owner_name }}</p>
+                        <p class="desc">{{ pet.description }}</p>
+                        <div class="tags">
+                            {% if pet.traits %}
+                                {% for trait in pet.traits %}
+                                    <span class="tag">{{ trait }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="tag">no traits</span>
+                            {% endif %}
+                        </div>
+                            <div class="actions-row">
+                                {% if request.user.is_authenticated %}
+                                    <a class="cta" href="{% url 'pet_chat' pet.id %}">Chat with {{ pet.name }}</a>
+                                {% else %}
+                                    <a class="cta" href="{% url 'auth' %}">Login to chat</a>
+                                {% endif %}
+                                <button class="pet-report-btn report-trigger" type="button" data-pet-id="{{ pet.id }}" data-pet-name="{{ pet.name }}" aria-label="Report {{ pet.name }}">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M5 3v18"></path>
+                                        <path d="M5 4h10l-2.5 4L15 12H5"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-note">No pets matched your search.</div>
+    {% endif %}
+{% endblock %}

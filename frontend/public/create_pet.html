@@ -1,76 +1,75 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Pet – Pet Project</title>
-    <link rel="stylesheet" href="/static/styles.css">
-    <style>
-        .create-page { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .back { display: inline-block; margin-bottom: 16px; color: #007bff; text-decoration: none; }
-        .back:hover { text-decoration: underline; }
+{% extends "discover_base.html" %}
+
+{% block page_title %}Create Pet – Pet Project{% endblock %}
+{% block topbar_class %} with-back{% endblock %}
+{% block topbar_leading %}<a class="back-home" href="{% url 'home' %}" aria-label="Back to home">←</a>{% endblock %}
+{% block topbar_middle %}<h1 style="margin:0;color:#f5f5f9;">Create a Pet</h1>{% endblock %}
+{% block topbar_trailing %}{% endblock %}
+
+{% block main_prefix %}
+<style>
+        .create-page {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 8px 4px 20px;
+            background: #1f1f27;
+            border: 1px solid #353546;
+            border-radius: 14px;
+        }
         .create-page h1 { margin-bottom: 24px; }
-        .section-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #888; margin: 24px 0 12px; border-top: 1px solid #e0e0e0; padding-top: 20px; }
+        .section-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #9ea0b3; margin: 24px 0 12px; border-top: 1px solid #353546; padding-top: 20px; }
         .section-title:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
-        .section-header { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #e0e0e0; padding-top: 20px; margin: 24px 0 12px; }
+        .section-header { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #353546; padding-top: 20px; margin: 24px 0 12px; }
         .section-header .section-title { border-top: none; padding-top: 0; margin: 0; }
-        .btn-ai-generate { padding: 4px 12px; font-size: 0.76rem; background: white; border: 1px solid #ccc; border-radius: 4px; cursor: not-allowed; color: #aaa; display: flex; align-items: center; gap: 5px; transition: all 0.15s; }
-        .btn-ai-generate.enabled { cursor: pointer; border-color: #007bff; color: #007bff; }
-        .btn-ai-generate.enabled:hover { background: #e8f0fe; }
+        .btn-ai-generate { padding: 4px 12px; font-size: 0.76rem; background: #24242d; border: 1px solid #3b3b47; border-radius: 6px; cursor: not-allowed; color: #7d8197; display: flex; align-items: center; gap: 5px; transition: all 0.15s; }
+        .btn-ai-generate.enabled { cursor: pointer; border-color: #535385; color: #d6d7f2; }
+        .btn-ai-generate.enabled:hover { background: #2e2e3d; }
         .btn-ai-generate svg { width: 13px; height: 13px; }
         .form-group { margin-bottom: 14px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.88rem; }
-        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.88rem; font-family: inherit; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.88rem; color: #ececf3; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 11px; border: 1px solid #3b3b47; border-radius: 8px; font-size: 0.88rem; font-family: inherit; background: #24242d; color: #f3f3f9; }
         .form-group textarea { resize: vertical; min-height: 72px; }
-        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #007bff; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #6f6fc0; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .hint { font-size: 0.76rem; color: #888; margin-top: 4px; }
-        .upload-zone { width: 100%; aspect-ratio: 2 / 1; border: 2px dashed #ccc; border-radius: 4px; background: #f9f9f9; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; position: relative; overflow: hidden; transition: border-color 0.15s; }
-        .upload-zone:hover, .upload-zone.drag-over { border-color: #007bff; }
+        .hint { font-size: 0.76rem; color: #8f92a8; margin-top: 4px; }
+        .upload-zone { width: 100%; aspect-ratio: 2 / 1; border: 2px dashed #4a4b5c; border-radius: 8px; background: #24242d; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; position: relative; overflow: hidden; transition: border-color 0.15s; }
+        .upload-zone:hover, .upload-zone.drag-over { border-color: #6f6fc0; }
         .upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
         .upload-zone img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
         .upload-zone.has-image img { display: block; }
         .upload-zone.has-image .upload-placeholder { display: none; }
-        .upload-placeholder { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #aaa; font-size: 0.82rem; pointer-events: none; }
+        .upload-placeholder { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #888da5; font-size: 0.82rem; pointer-events: none; }
         .upload-placeholder svg { width: 32px; height: 32px; }
         .upload-change { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.5); color: #fff; border: none; border-radius: 4px; font-size: 0.75rem; padding: 4px 9px; cursor: pointer; display: none; }
         .upload-zone.has-image .upload-change { display: block; }
         .tone-grid { display: flex; flex-wrap: wrap; gap: 7px; }
-        .tone-btn { padding: 5px 12px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.8rem; cursor: pointer; background: white; color: #555; }
-        .tone-btn:hover { border-color: #007bff; color: #007bff; }
-        .tone-btn.active { background: #007bff; border-color: #007bff; color: white; }
+        .tone-btn { padding: 5px 12px; border-radius: 999px; border: 1px solid #3b3b47; font-size: 0.8rem; cursor: pointer; background: #24242d; color: #c4c6db; }
+        .tone-btn:hover { border-color: #6f6fc0; color: #ececff; }
+        .tone-btn.active { background: #3f3f68; border-color: #6464a7; color: #fff; }
         .traits-wrap { display: flex; flex-wrap: wrap; gap: 7px; }
-        .trait-chip { padding: 5px 12px; border-radius: 20px; border: 1px solid #ccc; font-size: 0.8rem; cursor: pointer; background: white; color: #555; }
-        .trait-chip:hover { border-color: #007bff; color: #007bff; }
-        .trait-chip.active { background: #007bff; border-color: #007bff; color: white; }
+        .trait-chip { padding: 5px 12px; border-radius: 20px; border: 1px solid #3b3b47; font-size: 0.8rem; cursor: pointer; background: #24242d; color: #c4c6db; }
+        .trait-chip:hover { border-color: #6f6fc0; color: #ececff; }
+        .trait-chip.active { background: #3f3f68; border-color: #6464a7; color: #fff; }
         .vis-grid { display: flex; gap: 8px; }
-        .vis-btn { flex: 1; padding: 7px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.8rem; cursor: pointer; background: white; color: #555; text-align: center; }
-        .vis-btn:hover { border-color: #007bff; color: #007bff; }
-        .vis-btn.active { background: #007bff; border-color: #007bff; color: white; }
+        .vis-btn { flex: 1; padding: 9px; border: 1px solid #3b3b47; border-radius: 8px; font-size: 0.8rem; cursor: pointer; background: #24242d; color: #c4c6db; text-align: center; }
+        .vis-btn:hover { border-color: #6f6fc0; color: #ececff; }
+        .vis-btn.active { background: #3f3f68; border-color: #6464a7; color: #fff; }
         .submit-row { margin-top: 24px; display: flex; align-items: center; gap: 14px; }
-        button.btn-submit { padding: 10px 24px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
-        button.btn-submit:hover { background: #0056b3; }
+        button.btn-submit { padding: 10px 24px; background: #535385; color: white; border: 1px solid #6b6ba8; border-radius: 8px; cursor: pointer; font-size: 0.9rem; }
+        button.btn-submit:hover { background: #62629a; }
         button.btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
-        .status-msg { font-size: 0.82rem; color: #555; }
+        .status-msg { font-size: 0.82rem; color: #a9adbf; }
         .status-msg.error { color: #dc3545; }
         .status-msg.success { color: #28a745; }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>Pet Project</h1>
-        <nav>
-            <a href="/">Home</a>
-            <a href="/pets/">Pets</a>
-            <a href="/pets/create/">Create a pet</a>
-            <span id="nav-login-wrap"><a href="/auth/">Login / Register</a></span>
-            <span id="nav-user-wrap" style="display:none;"><span id="nav-user-name"></span> <a href="#" id="nav-signout">Sign out</a></span>
-        </nav>
-    </header>
+        #custom-trait-input { background: #24242d; color: #f3f3f9; border: 1px solid #3b3b47 !important; border-radius: 8px !important; }
+        #btn-add-trait { background: #535385 !important; border-radius: 8px !important; }
+        #btn-add-trait:hover { background: #62629a !important; }
+</style>
+{% endblock %}
 
-    <div class="create-page">
-        <a href="/pets/" class="back">← Back to pets</a>
-        <h1>Create a pet</h1>
+{% block main_content %}
+<div class="create-page">
+        <h1 style="margin: 0 0 18px 0; color: #f5f5f9;">Create a pet</h1>
 
         <div class="section-title">The basics</div>
 
@@ -186,20 +185,9 @@
             <span class="status-msg" id="create-status"></span>
         </div>
     </div>
-
-    <script>
+<script>
 (function () {
     var token = localStorage.getItem('authToken');
-    var navLoginWrap = document.getElementById('nav-login-wrap');
-    var navUserWrap  = document.getElementById('nav-user-wrap');
-    var navUserName  = document.getElementById('nav-user-name');
-
-    document.getElementById('nav-signout').addEventListener('click', function (e) {
-        e.preventDefault();
-        localStorage.removeItem('authToken');
-        location.reload();
-    });
-
     function authHeaders(extra) {
         var h = extra || {};
         if (token) h['Authorization'] = 'Token ' + token;
@@ -219,9 +207,6 @@
             .then(function (d) {
                 if (d) {
                     var name = (d.display_name && d.display_name.trim()) ? d.display_name.trim() : d.username;
-                    navLoginWrap.style.display = 'none';
-                    navUserWrap.style.display = 'inline';
-                    navUserName.textContent = name;
                 } else {
                     setStatus('You must be logged in to create a pet.', 'error');
                 }
@@ -429,6 +414,5 @@
         });
     });
 })();
-    </script>
-</body>
-</html>
+</script>
+{% endblock %}

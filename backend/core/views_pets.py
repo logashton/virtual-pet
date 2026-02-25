@@ -1,9 +1,13 @@
+import uuid
+
+from django.conf import settings
+from django.core.files.storage import default_storage
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Pet
+from .models import Pet, PetAsset
 from .serializer import PetCreateSerializer, PetSerializer, PetUpdateSerializer
 
 
@@ -94,3 +98,47 @@ class PetDetailView(APIView):
             return Response({"detail": "Only the owner or a moderator can delete this pet."}, status=status.HTTP_403_FORBIDDEN)
         pet.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PetUploadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            pet = Pet.objects.get(pk=pk)
+        except Pet.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not _can_modify_pet(pet, request.user):
+            return Response(
+                {"detail": "Only the owner or a moderator can upload images for this pet."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        image = request.FILES.get("image")
+        if not image:
+            return Response({"detail": "Missing image file field: image"}, status=status.HTTP_400_BAD_REQUEST)
+
+        ext = (image.name.rsplit(".", 1)[-1].lower() if "." in image.name else "jpg") or "jpg"
+        rel_path = f"uploads/pets/{pet.id}/{uuid.uuid4().hex}.{ext}"
+        saved_path = default_storage.save(rel_path, image)
+        image_url = settings.MEDIA_URL + saved_path
+
+        asset = PetAsset.objects.create(
+            pet=pet,
+            original_image_url=image_url,
+            cutout_image_url=None,
+            model_3d_url=None,
+            asset_type=PetAsset.AssetType.IMAGE,
+            status=PetAsset.Status.READY,
+        )
+
+        return Response(
+            {
+                "id": asset.id,
+                "pet_id": pet.id,
+                "original_image_url": asset.original_image_url,
+                "status": asset.status,
+            },
+            status=status.HTTP_201_CREATED,
+        )

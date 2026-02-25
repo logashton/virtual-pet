@@ -1,11 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat – Pet Project</title>
-    <link rel="stylesheet" href="/static/styles.css">
-    <style>
+{% extends "discover_base.html" %}
+
+{% block page_title %}Chat – Pet Project{% endblock %}
+{% block topbar_class %} with-back{% endblock %}
+{% block topbar_leading %}<a class="back-home" href="{% url 'pets' %}" aria-label="Back to pets">←</a>{% endblock %}
+{% block topbar_middle %}<h1 style="margin:0;color:#f5f5f9;">Pet Chat</h1>{% endblock %}
+{% block topbar_trailing %}{% endblock %}
+
+{% block main_prefix %}
+<style>
         .chat-page { max-width: 900px; margin: 0 auto; padding: 20px; }
         .back { display: inline-block; margin-bottom: 16px; color: #007bff; text-decoration: none; }
         .back:hover { text-decoration: underline; }
@@ -73,22 +75,48 @@
         .modal-save-status { font-size: 0.8rem; color: #28a745; }
         .modal-save-status.error { color: #dc3545; }
         .sidebar-trait { font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; background: #e8f0fe; color: #1a56db; border: 1px solid #c3d4f7; }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>Pet Project</h1>
-        <nav>
-            <a href="/">Home</a>
-            <a href="/pets/">Pets</a>
-            <a href="/pets/create/">Create a pet</a>
-            <span id="nav-login-wrap"><a href="/auth/">Login / Register</a></span>
-            <span id="nav-user-wrap" style="display: none;"><span id="nav-user-name"></span> <a href="#" id="nav-signout">Sign out</a></span>
-        </nav>
-    </header>
+        
+        /* theme overrides */
+        .chat-page { max-width: 1120px; margin: 0 auto; padding: 8px 0 20px; }
+        .card { background: #1f1f27; border: 1px solid #353546; border-radius: 12px; }
+        .pet-portrait-wrap { background: #24242d; border-color: #4a4b5c; }
+        .pet-portrait-placeholder { color: #858aa3; }
+        .pet-name-label { color: #f2f2f8; }
+        .stat-row { color: #d2d4e6; }
+        .stat-row label { color: #adb0c6; }
+        .stat-bar-bg { background: #2f313d; }
+        .stat-val { color: #d2d4e6; }
+        .decay-notice { background: #2e2a1f; border-color: #5d4c28; color: #e2ca84; border-radius: 8px; }
+        .decay-notice strong { color: #f0db9f; }
+        .btn { background: #535385; border: 1px solid #6b6ba8; border-radius: 8px; }
+        .btn:hover { background: #62629a; }
+        .visitor-note { color: #969bb2; }
+        #chat-messages { border: 1px solid #353546; border-radius: 12px; height: 420px; background: #1f1f27; }
+        .msg.pet { background: #2a2a35; color: #e8e8f1; }
+        .msg.system { background: #2e2a1f; color: #e2ca84; }
+        .chat-input-row input { border: 1px solid #3b3b47; border-radius: 8px; background: #24242d; color: #f3f3f9; padding: 10px 11px; }
+        .btn-regen { background: #24242d; border: 1px solid #3b3b47; color: #c9cbe0; border-radius: 6px; }
+        .btn-regen:hover { background: #2f3040; }
+        .keywords-hint { color: #9499b2; }
+        .btn-secondary { background: #24242d; border: 1px solid #5f5f98; color: #cfd1ed; border-radius: 8px; }
+        .btn-secondary:hover { background: #2e2e3d; }
+        .modal { background: #1f1f27; border: 1px solid #353546; color: #f0f0f6; border-radius: 12px; }
+        .modal-close { color: #aeb2ca; }
+        .modal-close:hover { color: #fff; }
+        .modal-field label { color: #ececf3; }
+        .modal-field .hint { color: #8f92a8; }
+        .modal-field input, .modal-field select, .modal-field textarea { background: #24242d; color: #f3f3f9; border: 1px solid #3b3b47; border-radius: 8px; }
+        .modal-field input:focus, .modal-field select:focus, .modal-field textarea:focus { border-color: #6f6fc0; outline: none; }
+        .trait-chip { border-color: #3b3b47; background: #24242d; color: #c4c6db; }
+        .trait-chip:hover { border-color: #6f6fc0; color: #ececff; }
+        .trait-chip.active { background: #3f3f68; border-color: #6464a7; color: #fff; }
+        .modal-footer { border-top: 1px solid #353546; }
+        .sidebar-trait { background: #323245; color: #d7d7e4; border: 1px solid #4f4f68; }
+</style>
+{% endblock %}
 
-    <div class="chat-page">
-        <a href="/pets/" class="back">← Back to pets</a>
+{% block main_content %}
+<div class="chat-page">
         <h1 id="page-title">Chat</h1>
 
         <div class="layout">
@@ -194,8 +222,7 @@
             </div>
         </div>
     </div>
-
-    <script>
+<script>
 (function () {
     var PET_ID = parseInt(window.location.pathname.split('/').filter(Boolean)[1], 10);
     var sessionId = null;
@@ -203,17 +230,6 @@
     var isBusy = false;
 
     var token = localStorage.getItem('authToken');
-    var navLoginWrap = document.getElementById('nav-login-wrap');
-    var navUserWrap  = document.getElementById('nav-user-wrap');
-    var navUserName  = document.getElementById('nav-user-name');
-
-    document.getElementById('nav-signout').addEventListener('click', function (e) {
-        e.preventDefault();
-        localStorage.removeItem('authToken');
-        navUserWrap.style.display = 'none';
-        navLoginWrap.style.display = 'inline';
-    });
-
     function authHeaders() {
         var h = { 'Content-Type': 'application/json' };
         var t = localStorage.getItem('authToken');
@@ -680,9 +696,6 @@
                 .then(function (data) {
                     if (data) {
                         var name = (data.display_name && data.display_name.trim()) ? data.display_name.trim() : data.username;
-                        navLoginWrap.style.display = 'none';
-                        navUserWrap.style.display = 'inline';
-                        navUserName.textContent = name;
                         userData = data;
                     }
                 })
@@ -770,6 +783,5 @@
 
     init();
 })();
-    </script>
-</body>
-</html>
+</script>
+{% endblock %}

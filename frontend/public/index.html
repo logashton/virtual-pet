@@ -1,96 +1,177 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pet Project</title>
-    <link rel="stylesheet" href="/static/styles.css">
+{% extends "discover_base.html" %}
+
+{% block page_title %}virtual-pet - Pet Project{% endblock %}
+
+{% block main_prefix %}
     <style>
-        .home-page { max-width: 900px; margin: 0 auto; padding: 20px; }
-        .home-page .hero { border-radius: 8px; padding: 48px 32px; margin-bottom: 24px; }
-        .home-page main { margin: 0; }
+        .discover-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+        .discover-chip {
+            display: inline-block;
+            border-radius: 999px;
+            border: 1px solid #3b3b46;
+            background: #23232a;
+            color: #d8d8df;
+            padding: 7px 12px;
+            font-size: 0.82rem;
+            text-decoration: none;
+            transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        }
+        .discover-chip:hover { background: #2b2b35; border-color: #4a4a60; color: #f0f0f6; }
+        .discover-chip.active { background: #3d3d60; border-color: #6565a2; color: #fff; }
+        .discover-section { margin-bottom: 28px; }
+        .discover-section h2 {
+            margin: 0 0 10px;
+            font-size: 1.02rem;
+            font-weight: 650;
+            color: #f5f5f7;
+        }
+        .discover-section p {
+            margin: 0 0 14px;
+            color: #9b9ba8;
+            font-size: 0.86rem;
+        }
+        .discover-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 12px;
+        }
+        .pet-card {
+            background: linear-gradient(180deg, #272732 0%, #1f1f27 100%);
+            border: 1px solid #353546;
+            border-radius: 14px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .pet-card .thumb {
+            height: 130px;
+            background: #23232d;
+            border-bottom: 1px solid #353546;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8e8e9a;
+            font-size: 0.8rem;
+        }
+        .pet-card .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .pet-card .body { padding: 14px; }
+        .pet-card h3 { margin: 0 0 6px; font-size: 0.95rem; color: #fff; }
+        .pet-card .meta { margin: 0; font-size: 0.82rem; color: #a9a9b5; }
+        .pet-card .desc {
+            margin: 8px 0 0;
+            font-size: 0.8rem;
+            color: #c6c6d2;
+            line-height: 1.35;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .pet-card .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+        .pet-card .tag {
+            font-size: 0.72rem;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: #323245;
+            color: #d7d7e4;
+        }
+        .pet-card .cta {
+            display: inline-block;
+            border-radius: 999px;
+            padding: 7px 11px;
+            font-size: 0.78rem;
+            text-decoration: none;
+            color: #fff;
+            background: #535385;
+            border: 1px solid #62629a;
+        }
+        .pet-card .actions-row { margin-top: 12px; display: flex; align-items: center; gap: 8px; }
+        .pet-card .cta:hover { background: #62629a; }
+        .empty-note {
+            padding: 14px;
+            border-radius: 10px;
+            border: 1px dashed #3d3d4a;
+            color: #a5a5b1;
+            background: #23232a;
+        }
+        .messages { margin: 0 0 16px; padding: 0; list-style: none; }
+        .messages li { padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; }
+        .messages li.success { background: #2f4335; color: #d4edda; }
+        .messages li.error { background: #4a2d33; color: #ffd1d8; }
+        .messages li.info { background: #2b3d49; color: #d1ecf1; }
     </style>
-</head>
-<body>
-    <header>
-        <h1>Pet Project</h1>
-        <nav>
-            <a href="/">Home</a>
-            <a href="/pets/">Pets</a>
-            <a href="/pets/create/">Create a pet</a>
-            <span id="nav-mod-wrap" style="display: none;"><a href="/mod/">Mod</a></span>
-            <span id="nav-admin-wrap" style="display: none;"><a href="/manage/">Admin</a></span>
-            <span id="nav-login-wrap"><a href="/auth/">Login / Register</a></span>
-            <span id="nav-user-wrap" style="display: none;"><span id="nav-user-name"></span> <a href="#" id="nav-signout">Sign out</a></span>
-        </nav>
-    </header>
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li class="{{ message.tags|default:'info' }}">{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endblock %}
 
-    <div class="home-page">
-        <section class="hero">
-            <h2>What is it?</h2>
-            <p>Take a picture, turn it into your own digital interactive pet!</p>
-        </section>
-
-        <main>
-            <h2>Welcome</h2>
-            <p>Create an account, then head to <a href="/pets/">Pets</a> to see and manage your virtual pets.</p>
-        </main>
+{% block main_content %}
+    <div class="discover-chips">
+        {% for tag in available_tags %}
+            <a
+                class="discover-chip{% if selected_tag == tag %} active{% endif %}"
+                href="{% url 'home' %}?tag={{ tag|urlencode }}"
+            >
+                {{ tag|title }}
+            </a>
+        {% endfor %}
     </div>
-<script>
-(function () {
-    var token = localStorage.getItem('authToken');
-    var loginWrap = document.getElementById('nav-login-wrap');
-    var userWrap = document.getElementById('nav-user-wrap');
-    var userName = document.getElementById('nav-user-name');
-    var signOut = document.getElementById('nav-signout');
 
-    function setLoggedIn(displayName) {
-        if (loginWrap) loginWrap.style.display = 'none';
-        if (userWrap) userWrap.style.display = 'inline';
-        if (userName) userName.textContent = displayName || 'You';
-    }
-    function setLoggedOut() {
-        if (userWrap) userWrap.style.display = 'none';
-        if (loginWrap) loginWrap.style.display = 'inline';
-    }
-
-    signOut.addEventListener('click', function (e) {
-        e.preventDefault();
-        localStorage.removeItem('authToken');
-        setLoggedOut();
-    });
-
-    if (!token) {
-        setLoggedOut();
-        var m = document.getElementById('nav-mod-wrap');
-        if (m) m.style.display = 'none';
-        var a = document.getElementById('nav-admin-wrap');
-        if (a) a.style.display = 'none';
-        return;
-    }
-    fetch('/api/auth/me/', {
-        headers: { 'Authorization': 'Token ' + token }
-    })
-        .then(function (r) {
-            if (r.ok) return r.json();
-            setLoggedOut();
-            return null;
-        })
-        .then(function (data) {
-            if (data) {
-                var name = (data.display_name && data.display_name.trim()) ? data.display_name.trim() : (data.username || '');
-                setLoggedIn(name);
-                var modWrap = document.getElementById('nav-mod-wrap');
-                if (modWrap) modWrap.style.display = data.is_staff ? 'inline' : 'none';
-                var adminWrap = document.getElementById('nav-admin-wrap');
-                if (adminWrap) adminWrap.style.display = data.is_superuser ? 'inline' : 'none';
-            } else {
-                var modWrap = document.getElementById('nav-mod-wrap');
-                if (modWrap) modWrap.style.display = 'none';
-            }
-        })
-        .catch(function () { setLoggedOut(); var m = document.getElementById('nav-mod-wrap'); if (m) m.style.display = 'none'; var a = document.getElementById('nav-admin-wrap'); if (a) a.style.display = 'none'; });
-})();
-</script>
-</body>
-</html>
+    <div class="discover-section">
+        <h2>Featured Pets</h2>
+        {% if selected_tag %}
+            <p>Showing pets tagged "{{ selected_tag|title }}".</p>
+        {% else %}
+            <p>Newest public pets from the community.</p>
+        {% endif %}
+        {% if featured_pets %}
+            <div class="discover-grid">
+                {% for pet in featured_pets %}
+                    <article class="pet-card">
+                        <div class="thumb">
+                            {% if pet.image_url %}
+                                <img src="{{ pet.image_url }}" alt="{{ pet.name }}">
+                            {% else %}
+                                No image yet
+                            {% endif %}
+                        </div>
+                        <div class="body">
+                            <h3>{{ pet.name }}</h3>
+                            <p class="meta">by {{ pet.owner_name }}</p>
+                            <p class="desc">{{ pet.description }}</p>
+                            <div class="tags">
+                                {% if pet.traits %}
+                                    {% for trait in pet.traits %}
+                                        <span class="tag">{{ trait }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="tag">no traits</span>
+                                {% endif %}
+                            </div>
+                            <div class="actions-row">
+                                {% if request.user.is_authenticated %}
+                                    <a class="cta" href="{% url 'pet_chat' pet.id %}">Chat with {{ pet.name }}</a>
+                                {% else %}
+                                    <a class="cta" href="{% url 'auth' %}">Login to chat</a>
+                                {% endif %}
+                                <button class="pet-report-btn report-trigger" type="button" data-pet-id="{{ pet.id }}" data-pet-name="{{ pet.name }}" aria-label="Report {{ pet.name }}">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M5 3v18"></path>
+                                        <path d="M5 4h10l-2.5 4L15 12H5"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-note">No featured pets yet. Create one and set it public to populate this board.</div>
+        {% endif %}
+    </div>
+{% endblock %}

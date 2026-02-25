@@ -51,6 +51,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "core.context_processors.auth_token",
             ],
         },
     }
@@ -80,6 +81,8 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [
     PROJECT_DIR / "frontend" / "public",
 ]
+MEDIA_URL = "/media/"
+MEDIA_ROOT = PROJECT_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Custom user table/schema lives in database/init_db.sql

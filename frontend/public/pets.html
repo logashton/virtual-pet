@@ -1,441 +1,198 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pets – Pet Project</title>
-    <link rel="stylesheet" href="/static/styles.css">
-    <style>
-        .pets-page { max-width: 900px; margin: 0 auto; padding: 20px; }
-        .pets-page h1 { margin-bottom: 8px; }
-        .pets-page h2 { margin: 24px 0 12px; font-size: 1.1rem; }
-        .back { display: inline-block; margin-bottom: 16px; color: #007bff; text-decoration: none; }
-        .back:hover { text-decoration: underline; }
-        .btn { padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px; margin-bottom: 8px; }
-        .btn:hover { background: #0056b3; }
-        .btn.danger { background: #dc3545; }
-        .btn.danger:hover { background: #c82333; }
-        .form-row { margin-bottom: 10px; }
-        .form-row label { display: inline-block; width: 100px; }
-        .form-row input, .form-row select { padding: 6px; width: 200px; }
-        pre, .api-result { background: #f5f5f5; padding: 12px; border-radius: 4px; overflow-x: auto; font-size: 12px; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
-        .api-result.error { background: #f8d7da; color: #721c24; }
-        .api-result.ok { background: #d4edda; color: #155724; }
-        .pet-list { list-style: none; padding: 0; }
-        .pet-list li { padding: 10px; border: 1px solid #ddd; margin-bottom: 8px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
-        .pet-list li span { font-weight: bold; }
-        .pet-list .meta { color: #666; font-size: 0.9em; font-weight: normal; }
-        .pet-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .section-note { color: #666; font-size: 0.9em; margin-bottom: 8px; }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>Pet Project</h1>
-        <nav>
-            <a href="/">Home</a>
-            <a href="/pets/">Pets</a>
-            <a href="/pets/create/">Create a pet</a>
-            <span id="nav-mod-wrap" style="display: none;"><a href="/mod/">Mod</a></span>
-            <span id="nav-admin-wrap" style="display: none;"><a href="/manage/">Admin</a></span>
-            <span id="nav-login-wrap"><a href="/auth/">Login / Register</a></span>
-            <span id="nav-user-wrap" style="display: none;"><span id="nav-user-name"></span> <a href="#" id="nav-signout">Sign out</a></span>
-        </nav>
-    </header>
+{% extends "discover_base.html" %}
 
-    <div class="pets-page">
-        <a href="/" class="back">← Back to home</a>
-        <h1>Pets – API testing</h1>
-        <p class="section-note">Test sample data and all pet endpoints. Log in as <strong>sample@example.com</strong> / <strong>samplepass123</strong> to see &ldquo;My pets&rdquo; and create/update/delete.</p>
+{% block page_title %}Me - Pet Project{% endblock %}
+{% block topbar_leading %}<h1>Me</h1>{% endblock %}
+{% block topbar_middle %}<div></div>{% endblock %}
+{% block topbar_trailing %}{% if request.user.is_authenticated %}<a class="discover-create" href="{% url 'pet_create' %}">+ Create Pet</a>{% endif %}{% endblock %}
 
-        <!-- My pets -->
-        <h2>1. My pets (GET /api/pets/?scope=mine)</h2>
-        <p class="section-note">Requires auth.</p>
-        <button type="button" class="btn" id="btn-mine">Load my pets</button>
-        <div id="result-mine" class="api-result" style="display: none;"></div>
-        <ul id="list-mine" class="pet-list"></ul>
+{% block main_prefix %}
+<style>
+  .me-wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 16px; }
+  .panel {
+    background: #1f1f27;
+    border: 1px solid #353546;
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .panel h2 { margin: 0 0 12px; color: #f3f3f9; font-size: 1rem; }
+  .empty {
+    border: 1px dashed #3d3d4a;
+    background: #23232a;
+    border-radius: 10px;
+    color: #a5a5b1;
+    padding: 12px;
+  }
+  .pet-list { display: grid; gap: 10px; }
+  .pet-item {
+    border: 1px solid #3b3b47;
+    border-radius: 10px;
+    background: #24242d;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 180px 1fr;
+  }
+  .pet-thumb {
+    background: #23232d;
+    border-right: 1px solid #353546;
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #8e8e9a;
+    font-size: 0.8rem;
+  }
+  .pet-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pet-body { padding: 12px; display: grid; gap: 10px; }
+  .pet-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .pet-name { font-weight: 600; color: #f0f0f7; }
+  .pet-meta { font-size: 0.8rem; color: #a8acc0; }
+  .pet-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pet-row label { font-size: 0.82rem; color: #cfd2e4; }
+  .pet-row select {
+    background: #1f1f27;
+    color: #f3f3f9;
+    border: 1px solid #3b3b47;
+    border-radius: 8px;
+    padding: 7px 9px;
+    font-size: 0.82rem;
+  }
+  .btn {
+    border-radius: 8px;
+    padding: 7px 11px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    color: #fff;
+    font-size: 0.8rem;
+  }
+  .btn.primary { background: #3f3f68; border-color: #6464a7; }
+  .btn.primary:hover { background: #505088; }
+  .btn.link {
+    background: #2b2b36;
+    border-color: #43435a;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+  }
+  .reports-table { width: 100%; border-collapse: collapse; }
+  .reports-table th, .reports-table td {
+    border-bottom: 1px solid #333542;
+    padding: 10px 8px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .reports-table th {
+    color: #b4b8cd;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-weight: 600;
+  }
+  .reports-table td { color: #e3e5f0; font-size: 0.84rem; }
+  .status-pill {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 3px 9px;
+    font-size: 0.73rem;
+    border: 1px solid;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .status-open { border-color: #7f7fbf; color: #d5d6ff; background: #2f2f4a; }
+  .status-resolved { border-color: #5f9a6f; color: #cbeed4; background: #23362a; }
+  .status-rejected { border-color: #a2515f; color: #ffd4db; background: #3f252b; }
+</style>
+{% endblock %}
 
-        <!-- Public pets -->
-        <h2>2. Public pets (GET /api/pets/?scope=public)</h2>
-        <button type="button" class="btn" id="btn-public">Load public pets</button>
-        <div id="result-public" class="api-result" style="display: none;"></div>
-        <ul id="list-public" class="pet-list"></ul>
-
-        <!-- Create pet -->
-        <h2>3. Create pet (POST /api/pets/)</h2>
-        <p class="section-note">Requires auth.</p>
-        <div class="form-row">
-            <label>Name</label>
-            <input type="text" id="create-name" placeholder="Pet name" value="">
+{% block main_content %}
+<div class="me-wrap">
+  {% if request.user.is_authenticated %}
+    <section class="panel">
+      <h2>My Pets</h2>
+      {% if my_pets %}
+        <div class="pet-list">
+          {% for pet in my_pets %}
+            <article class="pet-item">
+              <div class="pet-thumb">
+                {% if pet.image_url %}
+                  <img src="{{ pet.image_url }}" alt="{{ pet.name }}">
+                {% else %}
+                  No image yet
+                {% endif %}
+              </div>
+              <div class="pet-body">
+                <div class="pet-head">
+                  <div>
+                    <div class="pet-name">{{ pet.name }}</div>
+                    <div class="pet-meta">Updated {{ pet.updated_at|date:"M j, Y g:i A" }}</div>
+                  </div>
+                  <a class="btn link" href="{% url 'pet_chat' pet.id %}">Open Chat</a>
+                </div>
+                <div class="pet-meta">{{ pet.description }}</div>
+                <div class="pet-row" style="gap:6px;">
+                  {% if pet.traits %}
+                    {% for trait in pet.traits %}
+                      <span style="font-size:0.72rem;padding:4px 8px;border-radius:999px;background:#323245;color:#d7d7e4;">{{ trait }}</span>
+                    {% endfor %}
+                  {% endif %}
+                </div>
+                <form method="post" class="pet-row">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="update_pet">
+                  <input type="hidden" name="pet_id" value="{{ pet.id }}">
+                  <label for="vis-{{ pet.id }}">Visibility</label>
+                  <select id="vis-{{ pet.id }}" name="visibility">
+                    <option value="private" {% if pet.visibility == 'private' %}selected{% endif %}>private</option>
+                    <option value="public" {% if pet.visibility == 'public' %}selected{% endif %}>public</option>
+                    <option value="unlisted" {% if pet.visibility == 'unlisted' %}selected{% endif %}>unlisted</option>
+                  </select>
+                  <input type="hidden" name="name" value="{{ pet.name }}">
+                  <button class="btn primary" type="submit">Save visibility</button>
+                </form>
+              </div>
+            </article>
+          {% endfor %}
         </div>
-        <div class="form-row">
-            <label>Visibility</label>
-            <select id="create-visibility">
-                <option value="private">private</option>
-                <option value="public">public</option>
-                <option value="unlisted">unlisted</option>
-            </select>
-        </div>
-        <button type="button" class="btn" id="btn-create">Create pet</button>
-        <div id="result-create" class="api-result" style="display: none;"></div>
+      {% else %}
+        <div class="empty">You do not have any pets yet. Create one to get started.</div>
+      {% endif %}
+    </section>
 
-        <!-- Get by ID -->
-        <h2>4. Get pet by ID (GET /api/pets/&lt;id&gt;/)</h2>
-        <div class="form-row">
-            <label>Pet ID</label>
-            <input type="number" id="get-id" placeholder="e.g. 1" min="1">
-        </div>
-        <button type="button" class="btn" id="btn-get">Fetch pet</button>
-        <div id="result-get" class="api-result" style="display: none;"></div>
-
-        <!-- Pet detail (view / update / delete) -->
-        <h2>5. Pet detail – View / Update / Delete</h2>
-        <p class="section-note">Load a pet with &ldquo;Fetch pet&rdquo; or click View on a list. Then update or delete here.</p>
-        <div id="detail-json" class="api-result" style="display: none;"></div>
-        <div id="detail-actions" style="display: none; margin-top: 12px;">
-            <div class="form-row">
-                <label>Name</label>
-                <input type="text" id="update-name">
-            </div>
-            <div class="form-row">
-                <label>Visibility</label>
-                <select id="update-visibility">
-                    <option value="private">private</option>
-                    <option value="public">public</option>
-                    <option value="unlisted">unlisted</option>
-                </select>
-            </div>
-            <div class="form-row">
-                <label><input type="checkbox" id="update-archived"> Archived</label>
-            </div>
-            <button type="button" class="btn" id="btn-update">Update pet (PATCH)</button>
-            <button type="button" class="btn danger" id="btn-delete">Delete pet</button>
-        </div>
-        <div id="result-update" class="api-result" style="display: none;"></div>
-
-        <!-- Moderation reports -->
-        <h2>6. Reports</h2>
-        <p class="section-note">Report a pet (requires login). Load a pet above with View, then submit. Staff can update/delete via API.</p>
-        <div id="report-form-wrap">
-            <div class="form-row">
-                <label>Reason</label>
-                <input type="text" id="report-reason" placeholder="e.g. inappropriate content" maxlength="80">
-            </div>
-            <div class="form-row">
-                <label>Details</label>
-                <input type="text" id="report-details" placeholder="Optional details">
-            </div>
-            <button type="button" class="btn" id="btn-report-submit">Submit report</button>
-            <div id="result-report" class="api-result" style="display: none;"></div>
-        </div>
-        <h3 style="margin-top: 16px; font-size: 1rem;">My reports</h3>
-        <button type="button" class="btn" id="btn-reports-mine">Load my reports</button>
-        <span id="reports-pet-wrap"><button type="button" class="btn" id="btn-reports-pet">Load reports for this pet</button></span>
-        <span id="reports-pet-moderator-note" class="section-note" style="display: none;">Only moderators can view all reports for a pet.</span>
-        <div id="result-reports-list" class="api-result" style="display: none;"></div>
-        <ul id="list-reports" class="pet-list"></ul>
-    </div>
-
-    <script>
-(function () {
-    var token = localStorage.getItem('authToken');
-    var userIsStaff = false;
-    var userIsAdmin = false;
-    var navLoginWrap = document.getElementById('nav-login-wrap');
-    var navUserWrap = document.getElementById('nav-user-wrap');
-    var navUserName = document.getElementById('nav-user-name');
-    var navSignOut = document.getElementById('nav-signout');
-
-    function setNavLoggedIn(displayName) {
-        if (navLoginWrap) navLoginWrap.style.display = 'none';
-        if (navUserWrap) navUserWrap.style.display = 'inline';
-        if (navUserName) navUserName.textContent = displayName || 'You';
-    }
-    function setReportsPetVisibility() {
-        var wrap = document.getElementById('reports-pet-wrap');
-        var note = document.getElementById('reports-pet-moderator-note');
-        if (wrap) wrap.style.display = userIsStaff ? 'inline' : 'none';
-        if (note) note.style.display = token && !userIsStaff ? 'inline' : 'none';
-        var modWrap = document.getElementById('nav-mod-wrap');
-        if (modWrap) modWrap.style.display = token && userIsStaff ? 'inline' : 'none';
-        var adminWrap = document.getElementById('nav-admin-wrap');
-        if (adminWrap) adminWrap.style.display = token && userIsAdmin ? 'inline' : 'none';
-    }
-    function setNavLoggedOut() {
-        if (navUserWrap) navUserWrap.style.display = 'none';
-        if (navLoginWrap) navLoginWrap.style.display = 'inline';
-    }
-    navSignOut.addEventListener('click', function (e) {
-        e.preventDefault();
-        localStorage.removeItem('authToken');
-        setNavLoggedOut();
-    });
-    if (token) {
-        fetch('/api/auth/me/', { headers: { 'Authorization': 'Token ' + token } })
-            .then(function (r) { if (r.ok) return r.json(); return null; })
-            .then(function (data) {
-                if (data) {
-                    userIsStaff = !!data.is_staff;
-                    userIsAdmin = !!data.is_superuser;
-                    var name = (data.display_name && data.display_name.trim()) ? data.display_name.trim() : (data.username || '');
-                    setNavLoggedIn(name);
-                } else setNavLoggedOut();
-                setReportsPetVisibility();
-            })
-            .catch(function () { setNavLoggedOut(); setReportsPetVisibility(); });
-    } else { setNavLoggedOut(); setReportsPetVisibility(); }
-
-    function authHeaders() {
-        var t = localStorage.getItem('authToken');
-        var h = { 'Content-Type': 'application/json' };
-        if (t) h['Authorization'] = 'Token ' + t;
-        return h;
-    }
-
-    function showResult(elId, text, isError) {
-        var el = document.getElementById(elId);
-        if (!el) return;
-        el.textContent = text;
-        el.className = 'api-result' + (isError ? ' error' : ' ok');
-        el.style.display = 'block';
-    }
-
-    function renderPetList(listId, data, showViewOnly) {
-        var list = document.getElementById(listId);
-        list.innerHTML = '';
-        if (!Array.isArray(data)) return;
-        data.forEach(function (p) {
-            var li = document.createElement('li');
-            var owner = p.owner ? (p.owner.display_name || p.owner.username || p.owner.id) : '?';
-            li.innerHTML = '<span>' + (p.name || 'Unnamed') + '</span> <span class="meta">' + p.visibility + ' · owner: ' + owner + '</span> <div class="pet-actions"><button type="button" class="btn" data-view="' + p.id + '">View</button>' + (showViewOnly ? '' : '<button type="button" class="btn" data-edit="' + p.id + '">Edit</button><button type="button" class="btn danger" data-delete="' + p.id + '">Delete</button>') + '</div>';
-            list.appendChild(li);
-        });
-    }
-
-    // Event delegation so View/Edit/Delete work on dynamically added buttons
-    document.getElementById('list-mine').addEventListener('click', function (e) {
-        var t = e.target;
-        var id = t.getAttribute('data-view') || t.getAttribute('data-edit');
-        if (id) { e.preventDefault(); loadPetDetail(parseInt(id, 10)); return; }
-        id = t.getAttribute('data-delete');
-        if (id) { e.preventDefault(); if (confirm('Delete this pet?')) deletePet(parseInt(id, 10)); }
-    });
-    document.getElementById('list-public').addEventListener('click', function (e) {
-        var t = e.target;
-        var id = t.getAttribute('data-view');
-        if (id) { e.preventDefault(); loadPetDetail(parseInt(id, 10)); }
-    });
-
-    var currentPetId = null;
-
-    function loadPetDetail(id) {
-        currentPetId = id;
-        fetch('/api/pets/' + id + '/', { headers: authHeaders() })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-            .then(function (res) {
-                var detailEl = document.getElementById('detail-json');
-                var actionsEl = document.getElementById('detail-actions');
-                detailEl.style.display = 'block';
-                detailEl.textContent = JSON.stringify(res.data, null, 2);
-                detailEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
-                if (res.ok) {
-                    actionsEl.style.display = 'block';
-                    document.getElementById('update-name').value = res.data.name || '';
-                    document.getElementById('update-visibility').value = res.data.visibility || 'private';
-                    document.getElementById('update-archived').checked = !!res.data.is_archived;
-                    actionsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                } else actionsEl.style.display = 'none';
-            });
-    }
-
-    function deletePet(id) {
-        fetch('/api/pets/' + id + '/', { method: 'DELETE', headers: authHeaders() })
-            .then(function (r) {
-                if (r.status === 204) {
-                    showResult('result-update', 'Deleted. Reload lists.', false);
-                    document.getElementById('detail-actions').style.display = 'none';
-                    document.getElementById('detail-json').style.display = 'none';
-                    currentPetId = null;
-                    document.getElementById('btn-mine').click();
-                    document.getElementById('btn-public').click();
-                } else return r.json().then(function (d) { throw d; });
-            })
-            .catch(function (err) { showResult('result-update', JSON.stringify(err, null, 2), true); });
-    }
-
-    document.getElementById('btn-mine').addEventListener('click', function () {
-        var resultEl = document.getElementById('result-mine');
-        resultEl.style.display = 'block';
-        resultEl.textContent = 'Loading…';
-        fetch('/api/pets/?scope=mine', { headers: authHeaders() })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
-            .then(function (res) {
-                resultEl.textContent = 'Status ' + res.status + '\n' + JSON.stringify(res.data, null, 2);
-                resultEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
-                if (res.ok && Array.isArray(res.data)) renderPetList('list-mine', res.data, false);
-                else document.getElementById('list-mine').innerHTML = '';
-            });
-    });
-
-    document.getElementById('btn-public').addEventListener('click', function () {
-        var resultEl = document.getElementById('result-public');
-        resultEl.style.display = 'block';
-        resultEl.textContent = 'Loading…';
-        fetch('/api/pets/?scope=public', { headers: authHeaders() })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
-            .then(function (res) {
-                resultEl.textContent = 'Status ' + res.status + '\n' + JSON.stringify(res.data, null, 2);
-                resultEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
-                if (res.ok && Array.isArray(res.data)) renderPetList('list-public', res.data, true);
-                else document.getElementById('list-public').innerHTML = '';
-            });
-    });
-
-    document.getElementById('btn-create').addEventListener('click', function () {
-        var name = document.getElementById('create-name').value.trim();
-        if (!name) { showResult('result-create', 'Enter a name.', true); return; }
-        var payload = { name: name, visibility: document.getElementById('create-visibility').value };
-        var resultEl = document.getElementById('result-create');
-        resultEl.style.display = 'block';
-        resultEl.textContent = 'Creating…';
-        fetch('/api/pets/', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
-            .then(function (res) {
-                resultEl.textContent = 'Status ' + res.status + '\n' + JSON.stringify(res.data, null, 2);
-                resultEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
-                if (res.ok) {
-                    document.getElementById('create-name').value = '';
-                    document.getElementById('btn-mine').click();
-                }
-            });
-    });
-
-    document.getElementById('btn-get').addEventListener('click', function () {
-        var id = document.getElementById('get-id').value.trim();
-        if (!id) { showResult('result-get', 'Enter an ID.', true); return; }
-        var resultEl = document.getElementById('result-get');
-        resultEl.style.display = 'block';
-        resultEl.textContent = 'Loading…';
-        fetch('/api/pets/' + id + '/', { headers: authHeaders() })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
-            .then(function (res) {
-                resultEl.textContent = 'Status ' + res.status + '\n' + JSON.stringify(res.data, null, 2);
-                resultEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
-                if (res.ok) showPetInDetail(res.data);
-            });
-    });
-
-    function showPetInDetail(data) {
-        currentPetId = data.id;
-        document.getElementById('detail-json').textContent = JSON.stringify(data, null, 2);
-        document.getElementById('detail-json').className = 'api-result ok';
-        document.getElementById('detail-json').style.display = 'block';
-        document.getElementById('detail-actions').style.display = 'block';
-        document.getElementById('update-name').value = data.name || '';
-        document.getElementById('update-visibility').value = data.visibility || 'private';
-        document.getElementById('update-archived').checked = !!data.is_archived;
-    }
-
-    document.getElementById('btn-update').addEventListener('click', function () {
-        if (!currentPetId) { showResult('result-update', 'Load a pet first (Fetch or View).', true); return; }
-        var payload = {
-            name: document.getElementById('update-name').value.trim(),
-            visibility: document.getElementById('update-visibility').value,
-            is_archived: document.getElementById('update-archived').checked
-        };
-        fetch('/api/pets/' + currentPetId + '/', { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(payload) })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
-            .then(function (res) {
-                showResult('result-update', 'Status ' + res.status + '\n' + JSON.stringify(res.data, null, 2), !res.ok);
-                if (res.ok) {
-                    document.getElementById('detail-json').textContent = JSON.stringify(res.data, null, 2);
-                    document.getElementById('btn-mine').click();
-                    document.getElementById('btn-public').click();
-                }
-            });
-    });
-
-    document.getElementById('btn-delete').addEventListener('click', function () {
-        if (!currentPetId) { showResult('result-update', 'Load a pet first.', true); return; }
-        if (confirm('Delete pet #' + currentPetId + '?')) deletePet(currentPetId);
-    });
-
-    function renderReportsList(data) {
-        var list = document.getElementById('list-reports');
-        list.innerHTML = '';
-        if (!Array.isArray(data)) return;
-        data.forEach(function (r) {
-            var li = document.createElement('li');
-            li.innerHTML = '<span>#' + r.id + ' ' + (r.reason || '') + '</span> <span class="meta">pet: ' + (r.pet || '–') + ' · status: ' + (r.status || '') + ' · ' + (r.created_at || '') + '</span>';
-            list.appendChild(li);
-        });
-    }
-
-    document.getElementById('btn-report-submit').addEventListener('click', function () {
-        if (!token) { showResult('result-report', 'Log in to submit a report.', true); return; }
-        if (!currentPetId) { showResult('result-report', 'Load a pet first (View or Fetch).', true); return; }
-        var reason = document.getElementById('report-reason').value.trim();
-        if (!reason) { showResult('result-report', 'Enter a reason.', true); return; }
-        var payload = { reason: reason, details: document.getElementById('report-details').value.trim() || '', pet_id: currentPetId };
-        var resultEl = document.getElementById('result-report');
-        resultEl.style.display = 'block';
-        resultEl.textContent = 'Submitting…';
-        fetch('/api/moderation-reports/', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
-            .then(function (res) {
-                resultEl.textContent = 'Status ' + res.status + '\n' + JSON.stringify(res.data, null, 2);
-                resultEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
-                if (res.ok) {
-                    document.getElementById('report-reason').value = '';
-                    document.getElementById('report-details').value = '';
-                    document.getElementById('btn-reports-mine').click();
-                }
-            });
-    });
-
-    document.getElementById('btn-reports-mine').addEventListener('click', function () {
-        if (!token) { showResult('result-reports-list', 'Log in to view your reports.', true); return; }
-        var resultEl = document.getElementById('result-reports-list');
-        resultEl.style.display = 'block';
-        resultEl.textContent = 'Loading…';
-        fetch('/api/moderation-reports/', { headers: authHeaders() })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
-            .then(function (res) {
-                resultEl.textContent = 'Status ' + res.status + '\n' + JSON.stringify(res.data, null, 2);
-                resultEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
-                if (res.ok && Array.isArray(res.data)) renderReportsList(res.data);
-                else document.getElementById('list-reports').innerHTML = '';
-            });
-    });
-
-    document.getElementById('btn-reports-pet').addEventListener('click', function () {
-        if (!token) { showResult('result-reports-list', 'Log in to view reports.', true); return; }
-        if (!currentPetId) { showResult('result-reports-list', 'Load a pet first.', true); return; }
-        var resultEl = document.getElementById('result-reports-list');
-        resultEl.style.display = 'block';
-        resultEl.textContent = 'Loading…';
-        fetch('/api/moderation-reports/?pet=' + currentPetId, { headers: authHeaders() })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
-            .then(function (res) {
-                resultEl.textContent = 'Status ' + res.status + '\n' + JSON.stringify(res.data, null, 2);
-                resultEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
-                if (res.ok && Array.isArray(res.data)) renderReportsList(res.data);
-                else document.getElementById('list-reports').innerHTML = '';
-            });
-    });
-
-    // Auto-load public pets on page load so sample data is visible
-    document.getElementById('btn-public').click();
-
-    // If URL has ?view=<petId> (e.g. from Mod "View pet"), load that pet
-    var viewMatch = /[?&]view=([^&]+)/.exec(location.search);
-    if (viewMatch && viewMatch[1]) {
-        var viewId = viewMatch[1];
-        fetch('/api/pets/' + viewId + '/', { headers: authHeaders() })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-            .then(function (res) { if (res.ok) showPetInDetail(res.data); });
-    }
-})();
-    </script>
-</body>
-</html>
+    <section class="panel">
+      <h2>My Reports</h2>
+      {% if my_reports %}
+        <table class="reports-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Pet</th>
+              <th>Reason</th>
+              <th>Status</th>
+              <th>Submitted</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for report in my_reports %}
+              <tr>
+                <td>#{{ report.id }}</td>
+                <td>{% if report.pet %}{{ report.pet.name }}{% else %}-{% endif %}</td>
+                <td>{{ report.reason }}</td>
+                <td>
+                  <span class="status-pill status-{{ report.status }}">{{ report.status }}</span>
+                </td>
+                <td>{{ report.created_at }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="empty">No reports submitted yet.</div>
+      {% endif %}
+    </section>
+  {% else %}
+    <section class="panel">
+      <h2>Me</h2>
+      <div class="empty">Please <a href="{% url 'auth' %}" style="color:#cfd2ff;">log in</a> to view your pets and report history.</div>
+    </section>
+  {% endif %}
+</div>
+{% endblock %}
