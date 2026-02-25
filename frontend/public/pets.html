@@ -36,6 +36,8 @@
             <a href="/">Home</a>
             <a href="/pets/">Pets</a>
             <a href="/pets/create/">Create a pet</a>
+            <span id="nav-mod-wrap" style="display: none;"><a href="/mod/">Mod</a></span>
+            <span id="nav-admin-wrap" style="display: none;"><a href="/manage/">Admin</a></span>
             <span id="nav-login-wrap"><a href="/auth/">Login / Register</a></span>
             <span id="nav-user-wrap" style="display: none;"><span id="nav-user-name"></span> <a href="#" id="nav-signout">Sign out</a></span>
         </nav>
@@ -110,11 +112,35 @@
             <button type="button" class="btn danger" id="btn-delete">Delete pet</button>
         </div>
         <div id="result-update" class="api-result" style="display: none;"></div>
+
+        <!-- Moderation reports -->
+        <h2>6. Reports</h2>
+        <p class="section-note">Report a pet (requires login). Load a pet above with View, then submit. Staff can update/delete via API.</p>
+        <div id="report-form-wrap">
+            <div class="form-row">
+                <label>Reason</label>
+                <input type="text" id="report-reason" placeholder="e.g. inappropriate content" maxlength="80">
+            </div>
+            <div class="form-row">
+                <label>Details</label>
+                <input type="text" id="report-details" placeholder="Optional details">
+            </div>
+            <button type="button" class="btn" id="btn-report-submit">Submit report</button>
+            <div id="result-report" class="api-result" style="display: none;"></div>
+        </div>
+        <h3 style="margin-top: 16px; font-size: 1rem;">My reports</h3>
+        <button type="button" class="btn" id="btn-reports-mine">Load my reports</button>
+        <span id="reports-pet-wrap"><button type="button" class="btn" id="btn-reports-pet">Load reports for this pet</button></span>
+        <span id="reports-pet-moderator-note" class="section-note" style="display: none;">Only moderators can view all reports for a pet.</span>
+        <div id="result-reports-list" class="api-result" style="display: none;"></div>
+        <ul id="list-reports" class="pet-list"></ul>
     </div>
 
     <script>
 (function () {
     var token = localStorage.getItem('authToken');
+    var userIsStaff = false;
+    var userIsAdmin = false;
     var navLoginWrap = document.getElementById('nav-login-wrap');
     var navUserWrap = document.getElementById('nav-user-wrap');
     var navUserName = document.getElementById('nav-user-name');
@@ -124,6 +150,16 @@
         if (navLoginWrap) navLoginWrap.style.display = 'none';
         if (navUserWrap) navUserWrap.style.display = 'inline';
         if (navUserName) navUserName.textContent = displayName || 'You';
+    }
+    function setReportsPetVisibility() {
+        var wrap = document.getElementById('reports-pet-wrap');
+        var note = document.getElementById('reports-pet-moderator-note');
+        if (wrap) wrap.style.display = userIsStaff ? 'inline' : 'none';
+        if (note) note.style.display = token && !userIsStaff ? 'inline' : 'none';
+        var modWrap = document.getElementById('nav-mod-wrap');
+        if (modWrap) modWrap.style.display = token && userIsStaff ? 'inline' : 'none';
+        var adminWrap = document.getElementById('nav-admin-wrap');
+        if (adminWrap) adminWrap.style.display = token && userIsAdmin ? 'inline' : 'none';
     }
     function setNavLoggedOut() {
         if (navUserWrap) navUserWrap.style.display = 'none';
@@ -139,12 +175,15 @@
             .then(function (r) { if (r.ok) return r.json(); return null; })
             .then(function (data) {
                 if (data) {
+                    userIsStaff = !!data.is_staff;
+                    userIsAdmin = !!data.is_superuser;
                     var name = (data.display_name && data.display_name.trim()) ? data.display_name.trim() : (data.username || '');
                     setNavLoggedIn(name);
                 } else setNavLoggedOut();
+                setReportsPetVisibility();
             })
-            .catch(function () { setNavLoggedOut(); });
-    } else setNavLoggedOut();
+            .catch(function () { setNavLoggedOut(); setReportsPetVisibility(); });
+    } else { setNavLoggedOut(); setReportsPetVisibility(); }
 
     function authHeaders() {
         var t = localStorage.getItem('authToken');
@@ -282,18 +321,20 @@
             .then(function (res) {
                 resultEl.textContent = 'Status ' + res.status + '\n' + JSON.stringify(res.data, null, 2);
                 resultEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
-                if (res.ok) {
-                    currentPetId = res.data.id;
-                    document.getElementById('detail-json').textContent = JSON.stringify(res.data, null, 2);
-                    document.getElementById('detail-json').className = 'api-result ok';
-                    document.getElementById('detail-json').style.display = 'block';
-                    document.getElementById('detail-actions').style.display = 'block';
-                    document.getElementById('update-name').value = res.data.name || '';
-                    document.getElementById('update-visibility').value = res.data.visibility || 'private';
-                    document.getElementById('update-archived').checked = !!res.data.is_archived;
-                }
+                if (res.ok) showPetInDetail(res.data);
             });
     });
+
+    function showPetInDetail(data) {
+        currentPetId = data.id;
+        document.getElementById('detail-json').textContent = JSON.stringify(data, null, 2);
+        document.getElementById('detail-json').className = 'api-result ok';
+        document.getElementById('detail-json').style.display = 'block';
+        document.getElementById('detail-actions').style.display = 'block';
+        document.getElementById('update-name').value = data.name || '';
+        document.getElementById('update-visibility').value = data.visibility || 'private';
+        document.getElementById('update-archived').checked = !!data.is_archived;
+    }
 
     document.getElementById('btn-update').addEventListener('click', function () {
         if (!currentPetId) { showResult('result-update', 'Load a pet first (Fetch or View).', true); return; }
@@ -319,8 +360,81 @@
         if (confirm('Delete pet #' + currentPetId + '?')) deletePet(currentPetId);
     });
 
+    function renderReportsList(data) {
+        var list = document.getElementById('list-reports');
+        list.innerHTML = '';
+        if (!Array.isArray(data)) return;
+        data.forEach(function (r) {
+            var li = document.createElement('li');
+            li.innerHTML = '<span>#' + r.id + ' ' + (r.reason || '') + '</span> <span class="meta">pet: ' + (r.pet || '–') + ' · status: ' + (r.status || '') + ' · ' + (r.created_at || '') + '</span>';
+            list.appendChild(li);
+        });
+    }
+
+    document.getElementById('btn-report-submit').addEventListener('click', function () {
+        if (!token) { showResult('result-report', 'Log in to submit a report.', true); return; }
+        if (!currentPetId) { showResult('result-report', 'Load a pet first (View or Fetch).', true); return; }
+        var reason = document.getElementById('report-reason').value.trim();
+        if (!reason) { showResult('result-report', 'Enter a reason.', true); return; }
+        var payload = { reason: reason, details: document.getElementById('report-details').value.trim() || '', pet_id: currentPetId };
+        var resultEl = document.getElementById('result-report');
+        resultEl.style.display = 'block';
+        resultEl.textContent = 'Submitting…';
+        fetch('/api/moderation-reports/', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
+            .then(function (res) {
+                resultEl.textContent = 'Status ' + res.status + '\n' + JSON.stringify(res.data, null, 2);
+                resultEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
+                if (res.ok) {
+                    document.getElementById('report-reason').value = '';
+                    document.getElementById('report-details').value = '';
+                    document.getElementById('btn-reports-mine').click();
+                }
+            });
+    });
+
+    document.getElementById('btn-reports-mine').addEventListener('click', function () {
+        if (!token) { showResult('result-reports-list', 'Log in to view your reports.', true); return; }
+        var resultEl = document.getElementById('result-reports-list');
+        resultEl.style.display = 'block';
+        resultEl.textContent = 'Loading…';
+        fetch('/api/moderation-reports/', { headers: authHeaders() })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
+            .then(function (res) {
+                resultEl.textContent = 'Status ' + res.status + '\n' + JSON.stringify(res.data, null, 2);
+                resultEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
+                if (res.ok && Array.isArray(res.data)) renderReportsList(res.data);
+                else document.getElementById('list-reports').innerHTML = '';
+            });
+    });
+
+    document.getElementById('btn-reports-pet').addEventListener('click', function () {
+        if (!token) { showResult('result-reports-list', 'Log in to view reports.', true); return; }
+        if (!currentPetId) { showResult('result-reports-list', 'Load a pet first.', true); return; }
+        var resultEl = document.getElementById('result-reports-list');
+        resultEl.style.display = 'block';
+        resultEl.textContent = 'Loading…';
+        fetch('/api/moderation-reports/?pet=' + currentPetId, { headers: authHeaders() })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
+            .then(function (res) {
+                resultEl.textContent = 'Status ' + res.status + '\n' + JSON.stringify(res.data, null, 2);
+                resultEl.className = 'api-result' + (res.ok ? ' ok' : ' error');
+                if (res.ok && Array.isArray(res.data)) renderReportsList(res.data);
+                else document.getElementById('list-reports').innerHTML = '';
+            });
+    });
+
     // Auto-load public pets on page load so sample data is visible
     document.getElementById('btn-public').click();
+
+    // If URL has ?view=<petId> (e.g. from Mod "View pet"), load that pet
+    var viewMatch = /[?&]view=([^&]+)/.exec(location.search);
+    if (viewMatch && viewMatch[1]) {
+        var viewId = viewMatch[1];
+        fetch('/api/pets/' + viewId + '/', { headers: authHeaders() })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (res) { if (res.ok) showPetInDetail(res.data); });
+    }
 })();
     </script>
 </body>

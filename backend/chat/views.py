@@ -60,7 +60,7 @@ def _stat_description(stats):
     return " ".join(lines) if lines else "All your stats are in a decent range. You feel balanced and content."
 
 
-def _build_system_prompt(pet, stats):
+def _build_system_prompt(pet, stats, hours_alone=0):
     pet_name = pet.name
     stat_desc = _stat_description(stats)
 
@@ -71,7 +71,21 @@ def _build_system_prompt(pet, stats):
     except PetPersonality.DoesNotExist:
         pass
 
-    # ── Identity block 
+    # ── Loneliness block ─────────────────────────────────────────────────────
+    if hours_alone >= 0.25:
+        if hours_alone < 1:
+            alone_desc = f"Your owner last interacted with you {int(hours_alone * 60)} minutes ago."
+        elif hours_alone < 2:
+            alone_desc = f"Your owner last interacted with you about an hour ago."
+        elif hours_alone < 24:
+            alone_desc = f"Your owner last interacted with you {int(hours_alone)} hours ago."
+        else:
+            alone_desc = f"Your owner has not interacted with you in over a day."
+        alone_block = f"\nTime since last interaction: {alone_desc} Factor this into your stat_changes — if being alone bothers you (given your traits and personality), your happiness should reflect that, even if this current message is friendly."
+    else:
+        alone_block = ""
+
+    # ── Identity block ────────────────────────────────────────────────────────
     if saved:
         td = _traits_dict(saved)
         self_concept = td.get("self_concept", "").strip()
@@ -101,6 +115,7 @@ Whatever you are, you are fully committed to your nature and you interpret all y
 
 Your current internal state:
 {stat_desc}
+{alone_block}
 {extra_block}
 
 Rules:
@@ -144,6 +159,7 @@ Lean into this. The more specific and committed you are to your actual nature, t
 
 Your current internal state:
 {stat_desc}
+{alone_block}
 
 Rules:
 - Never break character or acknowledge being an AI or program.
@@ -342,13 +358,22 @@ def pet_chat_api(request, pet_id):
 
         user_message = last_user_msg.content
         # Rebuild history excluding the last pet reply so the LLM gets a fresh shot
+        import json as _json
         history_messages = []
         msgs_qs = ChatMessage.objects.filter(session=session).order_by("created_at")
         if last_pet_msg:
             msgs_qs = msgs_qs.exclude(pk=last_pet_msg.pk)
         for msg in msgs_qs[max(0, msgs_qs.count() - MAX_HISTORY):]:
-            role = "user" if msg.sender == ChatMessage.Sender.USER else "assistant"
-            history_messages.append({"role": role, "content": msg.content})
+            if msg.sender == ChatMessage.Sender.USER:
+                history_messages.append({"role": "user", "content": msg.content})
+            else:
+                history_messages.append({
+                    "role": "assistant",
+                    "content": _json.dumps({
+                        "reply": msg.content,
+                        "stat_changes": {"happiness": 0, "energy": 0, "hunger": 0, "cleanliness": 0, "health": 0}
+                    })
+                })
 
         stats, _ = PetStats.objects.get_or_create(pet=pet)
         stats.refresh_from_db()
@@ -426,6 +451,13 @@ def pet_chat_api(request, pet_id):
     apply_passive_decay(stats)
     stats.refresh_from_db()
 
+    # Compute how long the pet has been alone (since last interaction)
+    from django.utils import timezone as tz
+    if pet.last_interaction_at:
+        hours_alone = (tz.now() - pet.last_interaction_at).total_seconds() / 3600
+    else:
+        hours_alone = 0
+
     # Save a snapshot of stats before this message changes anything
     #  restore to this point if the user regenerates the response
     pre_message_snapshot = _stats_snapshot(stats) if is_owner else None
@@ -437,18 +469,29 @@ def pet_chat_api(request, pet_id):
     if is_authenticated:
         session = _get_or_create_session(request.user, pet)
 
-        # Load recent history to pass as LLM context
+        # Load recent history to pass as LLM context.
+        # Pet replies are stored as plain text but we re-wrap them as JSON here
+        # so the LLM sees consistent formatting and keeps responding in JSON.
         recent_msgs = (
             ChatMessage.objects
             .filter(session=session)
             .order_by("-created_at")[:MAX_HISTORY]
         )
+        import json as _json
         for msg in reversed(recent_msgs):
-            role = "user" if msg.sender == ChatMessage.Sender.USER else "assistant"
-            history_messages.append({"role": role, "content": msg.content})
+            if msg.sender == ChatMessage.Sender.USER:
+                history_messages.append({"role": "user", "content": msg.content})
+            else:
+                history_messages.append({
+                    "role": "assistant",
+                    "content": _json.dumps({
+                        "reply": msg.content,
+                        "stat_changes": {"happiness": 0, "energy": 0, "hunger": 0, "cleanliness": 0, "health": 0}
+                    })
+                })
 
     # Build LLM messages
-    system_prompt = _build_system_prompt(pet, stats)
+    system_prompt = _build_system_prompt(pet, stats, hours_alone)
 
     # If a button action was used, tell the LLM so it knows what happened
     effective_user_message = user_message
@@ -493,6 +536,10 @@ def pet_chat_api(request, pet_id):
         if pre_message_snapshot:
             session.stats_before_last_message = pre_message_snapshot
         session.save(update_fields=["last_message_at", "stats_before_last_message"])
+
+    # Update pet's last_interaction_at so next message knows how long it was alone
+    pet.last_interaction_at = tz.now()
+    pet.save(update_fields=["last_interaction_at"])
 
     stats.refresh_from_db()
 
