@@ -1,35 +1,180 @@
-{% extends "base.html" %}
+{% extends "discover_base.html" %}
 
-{% block title %}Auth - Pet Project{% endblock %}
+{% block page_title %}Login / Register - virtual-pet{% endblock %}
 
-{% block content %}
-<section class="card" style="max-width:480px;">
-  <h2>Login</h2>
-  <form method="post" class="form-grid">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="login">
-    <label>Email</label>
-    <input type="email" name="email" required>
-    <label>Password</label>
-    <input type="password" name="password" required>
-    <button class="btn primary" type="submit">Log in</button>
-  </form>
-</section>
+{% block topbar_leading %}
+<h1>Account</h1>
+{% endblock %}
+{% block topbar_middle %}{% endblock %}
+{% block topbar_trailing %}{% endblock %}
 
-<section class="card" style="max-width:480px;">
-  <h2>Register</h2>
-  <form method="post" class="form-grid">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="register">
-    <label>Email</label>
-    <input type="email" name="email" required>
-    <label>Username</label>
-    <input type="text" name="username" required>
-    <label>Password (min 8)</label>
-    <input type="password" name="password" minlength="8" required>
-    <label>Display name (optional)</label>
-    <input type="text" name="display_name">
-    <button class="btn primary" type="submit">Create account</button>
-  </form>
+{% block main_content %}
+<style>
+  .auth-layout {
+    max-width: 1120px;
+    margin: 6px auto 0;
+    display: grid;
+    gap: 18px;
+    grid-template-columns: minmax(260px, 1fr) minmax(320px, 1fr) minmax(320px, 1fr);
+  }
+  .auth-hero,
+  .auth-card {
+    border-radius: 14px;
+    border: 1px solid #353546;
+    background: #1f1f27;
+  }
+  .auth-hero {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: radial-gradient(circle at top left, #2f3150 0%, #1f1f27 48%);
+  }
+  .auth-hero h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #f5f5fc;
+  }
+  .auth-hero p {
+    margin: 0;
+    color: #b8bbd1;
+    line-height: 1.45;
+    max-width: 34ch;
+  }
+  .auth-points {
+    margin: 6px 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 7px;
+  }
+  .auth-points li {
+    color: #d6d8e9;
+    font-size: 0.9rem;
+  }
+  .auth-card {
+    padding: 18px;
+  }
+  .auth-card h3 {
+    margin: 0 0 6px;
+    font-size: 1rem;
+    color: #f1f2f8;
+  }
+  .auth-subtitle {
+    margin: 0 0 14px;
+    color: #a5a8be;
+    font-size: 0.86rem;
+  }
+  .auth-form {
+    display: grid;
+    gap: 10px;
+  }
+  .auth-form label {
+    font-size: 0.84rem;
+    color: #d2d4e5;
+  }
+  .auth-form input {
+    border-radius: 10px;
+    border: 1px solid #3b3b49;
+    background: #252530;
+    color: #f5f5fa;
+    padding: 10px 11px;
+    font-size: 0.92rem;
+  }
+  .auth-form input:focus {
+    outline: none;
+    border-color: #6767b0;
+    box-shadow: 0 0 0 3px rgba(103, 103, 176, 0.18);
+  }
+  .auth-btn {
+    margin-top: 4px;
+    border-radius: 10px;
+    border: 1px solid #6363a2;
+    background: #4b4b79;
+    color: #fff;
+    padding: 10px 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .auth-btn:hover {
+    background: #59598c;
+  }
+  .auth-messages {
+    margin: 0 auto 14px;
+    max-width: 1120px;
+    display: grid;
+    gap: 8px;
+  }
+  .auth-msg {
+    border-radius: 10px;
+    border: 1px solid #404055;
+    background: #252531;
+    color: #e8e9f2;
+    padding: 9px 11px;
+    font-size: 0.88rem;
+  }
+  .auth-msg.error { border-color: #6f3c46; background: #2d2025; color: #f1c2cb; }
+  .auth-msg.success { border-color: #335c48; background: #1f2b26; color: #bfe6d3; }
+  .auth-msg.info { border-color: #395070; background: #202837; color: #c7d9f2; }
+  @media (max-width: 1020px) {
+    .auth-layout {
+      grid-template-columns: 1fr;
+    }
+    .auth-hero p {
+      max-width: none;
+    }
+  }
+</style>
+
+{% if messages %}
+<div class="auth-messages">
+  {% for message in messages %}
+    <div class="auth-msg {{ message.tags|default:'info' }}">{{ message }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<section class="auth-layout">
+  <article class="auth-hero">
+    <h2>Bring your virtual pets to life</h2>
+    <p>Sign in to keep your pets active, chat with personality-aware companions, and manage your own creations.</p>
+    <ul class="auth-points">
+      <li>Save chat history and pet progress</li>
+      <li>Upload custom pet images</li>
+      <li>Create and personalize new pets</li>
+    </ul>
+  </article>
+
+  <article class="auth-card">
+    <h3>Log in</h3>
+    <p class="auth-subtitle">Welcome back.</p>
+    <form method="post" class="auth-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="login">
+      <label for="login-email">Email</label>
+      <input id="login-email" type="email" name="email" autocomplete="email" required>
+      <label for="login-password">Password</label>
+      <input id="login-password" type="password" name="password" autocomplete="current-password" required>
+      <button class="auth-btn" type="submit">Log in</button>
+    </form>
+  </article>
+
+  <article class="auth-card">
+    <h3>Create account</h3>
+    <p class="auth-subtitle">Start building your pet world.</p>
+    <form method="post" class="auth-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="register">
+      <label for="register-email">Email</label>
+      <input id="register-email" type="email" name="email" autocomplete="email" required>
+      <label for="register-username">Username</label>
+      <input id="register-username" type="text" name="username" autocomplete="username" required>
+      <label for="register-password">Password (min 8)</label>
+      <input id="register-password" type="password" name="password" autocomplete="new-password" minlength="8" required>
+      <label for="register-display-name">Display name (optional)</label>
+      <input id="register-display-name" type="text" name="display_name" autocomplete="nickname">
+      <button class="auth-btn" type="submit">Create account</button>
+    </form>
+  </article>
 </section>
 {% endblock %}
