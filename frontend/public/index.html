@@ -17,7 +17,12 @@
         <nav>
             <a href="/">Home</a>
             <a href="/pets/">Pets</a>
+<<<<<<< HEAD
             <a href="/pets/create/">Create a pet</a>
+=======
+            <span id="nav-mod-wrap" style="display: none;"><a href="/mod/">Mod</a></span>
+            <span id="nav-admin-wrap" style="display: none;"><a href="/manage/">Admin</a></span>
+>>>>>>> eb8644b1af5bc2f6cb8ed95bb48e3203111b989c
             <span id="nav-login-wrap"><a href="/auth/">Login / Register</a></span>
             <span id="nav-user-wrap" style="display: none;"><span id="nav-user-name"></span> <a href="#" id="nav-signout">Sign out</a></span>
         </nav>
@@ -60,6 +65,10 @@
 
     if (!token) {
         setLoggedOut();
+        var m = document.getElementById('nav-mod-wrap');
+        if (m) m.style.display = 'none';
+        var a = document.getElementById('nav-admin-wrap');
+        if (a) a.style.display = 'none';
         return;
     }
     fetch('/api/auth/me/', {
@@ -74,9 +83,16 @@
             if (data) {
                 var name = (data.display_name && data.display_name.trim()) ? data.display_name.trim() : (data.username || '');
                 setLoggedIn(name);
+                var modWrap = document.getElementById('nav-mod-wrap');
+                if (modWrap) modWrap.style.display = data.is_staff ? 'inline' : 'none';
+                var adminWrap = document.getElementById('nav-admin-wrap');
+                if (adminWrap) adminWrap.style.display = data.is_superuser ? 'inline' : 'none';
+            } else {
+                var modWrap = document.getElementById('nav-mod-wrap');
+                if (modWrap) modWrap.style.display = 'none';
             }
         })
-        .catch(function () { setLoggedOut(); });
+        .catch(function () { setLoggedOut(); var m = document.getElementById('nav-mod-wrap'); if (m) m.style.display = 'none'; var a = document.getElementById('nav-admin-wrap'); if (a) a.style.display = 'none'; });
 })();
 </script>
 </body>
