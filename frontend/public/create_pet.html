@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Pet – Pet Project</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .create-page { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .back { display: inline-block; margin-bottom: 16px; color: #007bff; text-decoration: none; }
+        .back:hover { text-decoration: underline; }
+        .create-page h1 { margin-bottom: 24px; }
+        .section-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #888; margin: 24px 0 12px; border-top: 1px solid #e0e0e0; padding-top: 20px; }
+        .section-title:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+        .section-header { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #e0e0e0; padding-top: 20px; margin: 24px 0 12px; }
+        .section-header .section-title { border-top: none; padding-top: 0; margin: 0; }
+        .btn-ai-generate { padding: 4px 12px; font-size: 0.76rem; background: white; border: 1px solid #ccc; border-radius: 4px; cursor: not-allowed; color: #aaa; display: flex; align-items: center; gap: 5px; transition: all 0.15s; }
+        .btn-ai-generate.enabled { cursor: pointer; border-color: #007bff; color: #007bff; }
+        .btn-ai-generate.enabled:hover { background: #e8f0fe; }
+        .btn-ai-generate svg { width: 13px; height: 13px; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.88rem; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.88rem; font-family: inherit; }
+        .form-group textarea { resize: vertical; min-height: 72px; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #007bff; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .hint { font-size: 0.76rem; color: #888; margin-top: 4px; }
+        .upload-zone { width: 100%; aspect-ratio: 2 / 1; border: 2px dashed #ccc; border-radius: 4px; background: #f9f9f9; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; position: relative; overflow: hidden; transition: border-color 0.15s; }
+        .upload-zone:hover, .upload-zone.drag-over { border-color: #007bff; }
+        .upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+        .upload-zone img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+        .upload-zone.has-image img { display: block; }
+        .upload-zone.has-image .upload-placeholder { display: none; }
+        .upload-placeholder { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #aaa; font-size: 0.82rem; pointer-events: none; }
+        .upload-placeholder svg { width: 32px; height: 32px; }
+        .upload-change { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.5); color: #fff; border: none; border-radius: 4px; font-size: 0.75rem; padding: 4px 9px; cursor: pointer; display: none; }
+        .upload-zone.has-image .upload-change { display: block; }
+        .tone-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+        .tone-btn { padding: 5px 12px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.8rem; cursor: pointer; background: white; color: #555; }
+        .tone-btn:hover { border-color: #007bff; color: #007bff; }
+        .tone-btn.active { background: #007bff; border-color: #007bff; color: white; }
+        .traits-wrap { display: flex; flex-wrap: wrap; gap: 7px; }
+        .trait-chip { padding: 5px 12px; border-radius: 20px; border: 1px solid #ccc; font-size: 0.8rem; cursor: pointer; background: white; color: #555; }
+        .trait-chip:hover { border-color: #007bff; color: #007bff; }
+        .trait-chip.active { background: #007bff; border-color: #007bff; color: white; }
+        .vis-grid { display: flex; gap: 8px; }
+        .vis-btn { flex: 1; padding: 7px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.8rem; cursor: pointer; background: white; color: #555; text-align: center; }
+        .vis-btn:hover { border-color: #007bff; color: #007bff; }
+        .vis-btn.active { background: #007bff; border-color: #007bff; color: white; }
+        .submit-row { margin-top: 24px; display: flex; align-items: center; gap: 14px; }
+        button.btn-submit { padding: 10px 24px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+        button.btn-submit:hover { background: #0056b3; }
+        button.btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+        .status-msg { font-size: 0.82rem; color: #555; }
+        .status-msg.error { color: #dc3545; }
+        .status-msg.success { color: #28a745; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Pet Project</h1>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/pets/">Pets</a>
+            <a href="/pets/create/">Create a pet</a>
+            <span id="nav-login-wrap"><a href="/auth/">Login / Register</a></span>
+            <span id="nav-user-wrap" style="display:none;"><span id="nav-user-name"></span> <a href="#" id="nav-signout">Sign out</a></span>
+        </nav>
+    </header>
+
+    <div class="create-page">
+        <a href="/pets/" class="back">← Back to pets</a>
+        <h1>Create a pet</h1>
+
+        <div class="section-title">The basics</div>
+
+        <div class="form-group">
+            <label for="pet-name">Name *</label>
+            <input type="text" id="pet-name" maxlength="60">
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="pet-age">Age</label>
+                <input type="text" id="pet-age">
+            </div>
+            <div class="form-group">
+                <label for="pet-species">What are they?</label>
+                <input type="text" id="pet-species">
+                <p class="hint">e.g. a rock, a fern, a sword</p>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Visibility</label>
+            <div class="vis-grid">
+                <button type="button" class="vis-btn active" data-vis="private">Private</button>
+                <button type="button" class="vis-btn" data-vis="public">Public</button>
+                <button type="button" class="vis-btn" data-vis="unlisted">Unlisted</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Photo</label>
+            <div class="upload-zone" id="upload-zone">
+                <input type="file" id="photo-input" accept="image/*">
+                <img id="photo-preview" alt="">
+                <div class="upload-placeholder">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <path d="M21 15l-5-5L5 21"/>
+                    </svg>
+                    Click or drag to upload
+                </div>
+                <button type="button" class="upload-change" id="upload-change">Change</button>
+            </div>
+        </div>
+
+        <div class="section-header">
+            <div class="section-title">Appearance &amp; character</div>
+            <button type="button" class="btn-ai-generate" id="btn-gen-appearance" title="Upload a photo to enable" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c-1 3-4 5-4 8a4 4 0 0 0 8 0c0-3-3-5-4-8z"/><path d="M12 15v6M9 18h6"/></svg>
+                Generate from photo
+            </button>
+        </div>
+
+        <div class="form-group">
+            <label for="pet-appearance">Physical description</label>
+            <textarea id="pet-appearance" maxlength="300"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="pet-backstory">Backstory</label>
+            <textarea id="pet-backstory" maxlength="300"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="pet-quirks">Quirks &amp; habits</label>
+            <textarea id="pet-quirks" maxlength="300"></textarea>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="pet-likes">Likes</label>
+                <input type="text" id="pet-likes" maxlength="200">
+            </div>
+            <div class="form-group">
+                <label for="pet-dislikes">Dislikes</label>
+                <input type="text" id="pet-dislikes" maxlength="200">
+            </div>
+        </div>
+
+        <div class="section-header">
+            <div class="section-title">Personality</div>
+            <button type="button" class="btn-ai-generate" id="btn-gen-personality" title="Upload a photo to enable" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c-1 3-4 5-4 8a4 4 0 0 0 8 0c0-3-3-5-4-8z"/><path d="M12 15v6M9 18h6"/></svg>
+                Generate from photo
+            </button>
+        </div>
+
+        <div class="form-group">
+            <label>Tone</label>
+            <div class="tone-grid" id="tone-grid"></div>
+        </div>
+
+        <div class="form-group">
+            <label>Traits</label>
+            <div class="traits-wrap" id="traits-wrap"></div>
+            <div style="display:flex;gap:8px;margin-top:10px;">
+                <input type="text" id="custom-trait-input" maxlength="30" placeholder="Add a custom trait..."
+                    style="flex:1;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:0.82rem;font-family:inherit;">
+                <button type="button" id="btn-add-trait"
+                    style="padding:6px 14px;background:#007bff;color:white;border:none;border-radius:4px;font-size:0.82rem;cursor:pointer;">Add</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="pet-extra">Additional instructions</label>
+            <textarea id="pet-extra" maxlength="300"></textarea>
+            <p class="hint">Anything else the AI should know about how they speak or behave.</p>
+        </div>
+
+        <div class="submit-row">
+            <button class="btn-submit" id="btn-create" disabled>Create pet</button>
+            <span class="status-msg" id="create-status"></span>
+        </div>
+    </div>
+
+    <script>
+(function () {
+    var token = localStorage.getItem('authToken');
+    var navLoginWrap = document.getElementById('nav-login-wrap');
+    var navUserWrap  = document.getElementById('nav-user-wrap');
+    var navUserName  = document.getElementById('nav-user-name');
+
+    document.getElementById('nav-signout').addEventListener('click', function (e) {
+        e.preventDefault();
+        localStorage.removeItem('authToken');
+        location.reload();
+    });
+
+    function authHeaders(extra) {
+        var h = extra || {};
+        if (token) h['Authorization'] = 'Token ' + token;
+        return h;
+    }
+
+    function setStatus(msg, type) {
+        var el = document.getElementById('create-status');
+        el.textContent = msg;
+        el.className = 'status-msg' + (type ? ' ' + type : '');
+    }
+
+    // Auth
+    if (token) {
+        fetch('/api/auth/me/', { headers: { 'Authorization': 'Token ' + token } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (d) {
+                    var name = (d.display_name && d.display_name.trim()) ? d.display_name.trim() : d.username;
+                    navLoginWrap.style.display = 'none';
+                    navUserWrap.style.display = 'inline';
+                    navUserName.textContent = name;
+                } else {
+                    setStatus('You must be logged in to create a pet.', 'error');
+                }
+            });
+    } else {
+        setStatus('You must be logged in to create a pet.', 'error');
+    }
+
+    // Photo upload
+    var uploadedFile = null;
+    var zone = document.getElementById('upload-zone');
+    var photoInput = document.getElementById('photo-input');
+    var preview = document.getElementById('photo-preview');
+
+    photoInput.addEventListener('change', function () {
+        if (this.files && this.files[0]) handleFile(this.files[0]);
+    });
+    document.getElementById('upload-change').addEventListener('click', function (e) {
+        e.stopPropagation();
+        photoInput.click();
+    });
+    zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', function () { zone.classList.remove('drag-over'); });
+    zone.addEventListener('drop', function (e) {
+        e.preventDefault(); zone.classList.remove('drag-over');
+        if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+
+    function handleFile(file) {
+        if (!file.type.startsWith('image/')) { setStatus('Please upload an image file.', 'error'); return; }
+        uploadedFile = file;
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            preview.src = e.target.result;
+            zone.classList.add('has-image');
+            // Enable generate buttons
+            ['btn-gen-appearance', 'btn-gen-personality'].forEach(function (id) {
+                var btn = document.getElementById(id);
+                btn.disabled = false;
+                btn.classList.add('enabled');
+                btn.title = '';
+            });
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // Generate buttons — wired up, ready for future implementation
+    document.getElementById('btn-gen-appearance').addEventListener('click', function () {
+        if (!uploadedFile) return;
+        setStatus('AI generation coming soon.', '');
+    });
+    document.getElementById('btn-gen-personality').addEventListener('click', function () {
+        if (!uploadedFile) return;
+        setStatus('AI generation coming soon.', '');
+    });
+
+    // Visibility
+    var selectedVis = 'private';
+    document.querySelectorAll('.vis-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            selectedVis = btn.dataset.vis;
+            document.querySelectorAll('.vis-btn').forEach(function (b) { b.classList.toggle('active', b === btn); });
+        });
+    });
+
+    // Tone
+    var TONES = ['neutral','snarky','gentle','dramatic','anxious','stoic','cheerful','melancholic','aggressive','mysterious'];
+    var selectedTone = '';
+    TONES.forEach(function (t) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tone-btn';
+        btn.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+        btn.addEventListener('click', function () {
+            selectedTone = selectedTone === t ? '' : t;
+            document.querySelectorAll('.tone-btn').forEach(function (b) {
+                b.classList.toggle('active', b.textContent.toLowerCase() === selectedTone);
+            });
+        });
+        document.getElementById('tone-grid').appendChild(btn);
+    });
+
+    // Traits
+    var TRAITS = ['curious','lazy','loyal','mischievous','wise','cowardly','brave','jealous','affectionate','aloof','greedy','generous','paranoid','optimistic','pessimistic'];
+    var selectedTraits = [];
+    TRAITS.forEach(function (t) {
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'trait-chip';
+        chip.textContent = t;
+        chip.addEventListener('click', function () {
+            var idx = selectedTraits.indexOf(t);
+            if (idx >= 0) {
+                selectedTraits.splice(idx, 1);
+                chip.classList.remove('active');
+            } else {
+                
+                selectedTraits.push(t);
+                chip.classList.add('active');
+            }
+        });
+        document.getElementById('traits-wrap').appendChild(chip);
+    });
+
+    function addCustomTrait(val) {
+        val = val.trim().toLowerCase();
+        if (!val) return;
+        if (selectedTraits.indexOf(val) >= 0) { setStatus('Trait already added.', 'error'); return; }
+        
+        selectedTraits.push(val);
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'trait-chip active';
+        chip.textContent = val;
+        chip.addEventListener('click', function () {
+            var idx = selectedTraits.indexOf(val);
+            if (idx >= 0) selectedTraits.splice(idx, 1);
+            chip.parentNode.removeChild(chip);
+        });
+        document.getElementById('traits-wrap').appendChild(chip);
+        document.getElementById('custom-trait-input').value = '';
+    }
+
+    document.getElementById('btn-add-trait').addEventListener('click', function () {
+        addCustomTrait(document.getElementById('custom-trait-input').value);
+    });
+    document.getElementById('custom-trait-input').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); addCustomTrait(this.value); }
+    });
+
+    // Enable submit when name entered
+    document.getElementById('pet-name').addEventListener('input', function () {
+        document.getElementById('btn-create').disabled = !this.value.trim() || !token;
+    });
+
+    // Build roleplay_prompt from fields
+    function buildRoleplayPrompt() {
+        var parts = [];
+        var age        = document.getElementById('pet-age').value.trim();
+        var appearance = document.getElementById('pet-appearance').value.trim();
+        var backstory  = document.getElementById('pet-backstory').value.trim();
+        var quirks     = document.getElementById('pet-quirks').value.trim();
+        var likes      = document.getElementById('pet-likes').value.trim();
+        var dislikes   = document.getElementById('pet-dislikes').value.trim();
+        var extra      = document.getElementById('pet-extra').value.trim();
+        if (age)        parts.push('Age: ' + age + '.');
+        if (appearance) parts.push('Physical appearance: ' + appearance);
+        if (backstory)  parts.push('Backstory: ' + backstory);
+        if (quirks)     parts.push('Quirks and habits: ' + quirks);
+        if (likes)      parts.push('Likes: ' + likes);
+        if (dislikes)   parts.push('Dislikes: ' + dislikes);
+        if (extra)      parts.push(extra);
+        return parts.join('\n');
+    }
+
+    // Submit
+    document.getElementById('btn-create').addEventListener('click', function () {
+        var name = document.getElementById('pet-name').value.trim();
+        if (!name) { setStatus('Please enter a name.', 'error'); return; }
+
+        var btn = this;
+        btn.disabled = true;
+        setStatus('Creating...', '');
+
+        fetch('/api/pets/', {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ name: name, visibility: selectedVis })
+        })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+            if (!res.ok) throw new Error(res.data.detail || JSON.stringify(res.data));
+            var petId = res.data.id;
+            setStatus('Saving personality...', '');
+            return fetch('/api/pets/' + petId + '/personality/', {
+                method: 'PATCH',
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({
+                    self_concept:    document.getElementById('pet-species').value.trim(),
+                    tone:            selectedTone,
+                    traits:          selectedTraits.slice(),
+                    roleplay_prompt: buildRoleplayPrompt(),
+                })
+            }).then(function () { return petId; });
+        })
+        .then(function (petId) {
+            if (uploadedFile) {
+                var form = new FormData();
+                form.append('image', uploadedFile);
+                fetch('/api/pets/' + petId + '/upload/', {
+                    method: 'POST',
+                    headers: authHeaders({}),
+                    body: form
+                }).catch(function () {});
+            }
+            return petId;
+        })
+        .then(function (petId) {
+            setStatus('Done!', 'success');
+            setTimeout(function () { window.location.href = '/pets/' + petId + '/chat/'; }, 600);
+        })
+        .catch(function (err) {
+            setStatus('Error: ' + err.message, 'error');
+            btn.disabled = false;
+        });
+    });
+})();
+    </script>
+</body>
+</html>

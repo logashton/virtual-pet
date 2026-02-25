@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
-from .models import Pet, PetStats, User, temp_personality
+from .models import Pet, PetStats, User, temp_personality, PetAsset
+
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -53,7 +54,7 @@ class Temp_PersonalitySerializer(serializers.ModelSerializer):
 
 
 class PetOwnerSerializer(serializers.ModelSerializer):
-    # minimal owner info for pet responses
+    # owner info for pet responses
 
     class Meta:
         model = User
@@ -100,3 +101,24 @@ class PetUpdateSerializer(serializers.Serializer):
             setattr(instance, key, value)
         instance.save()
         return instance
+    
+   
+   
+class PetAssetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PetAsset
+        fields = ('id', 'original_image_url', 'cutout_image_url', 'status', 'asset_type')
+
+class PetSerializer(serializers.ModelSerializer):
+    owner = PetOwnerSerializer(read_only=True)
+    assets = PetAssetSerializer(many=True, read_only=True)  
+
+    class Meta:
+        model = Pet
+        fields = (
+            "id", "owner", "name", "visibility", "is_archived",
+            "created_at", "updated_at", "last_interaction_at",
+            "assets",  
+        )
+        read_only_fields = ("id", "owner", "created_at", "updated_at", "last_interaction_at", "assets") 
+    

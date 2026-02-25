@@ -11,6 +11,11 @@ urlpatterns = [
     path("api/pets/", include("core.pets_urls")),
     path("chat/", include("chat.urls")),
     path("admin/", admin.site.urls),
+    path("pets/<int:pet_id>/chat/", TemplateView.as_view(template_name="pet_chat.html"), name="pet_chat"),
+    path("api/pets/", include("core.stats_urls")),
+    path("pets/create/", TemplateView.as_view(template_name="create_pet.html"), name="pet_create"),
+    
+    
 ]
 
 

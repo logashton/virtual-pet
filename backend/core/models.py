@@ -239,6 +239,7 @@ class ChatSession(models.Model):
     model = models.CharField(max_length=80, blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     last_message_at = models.DateTimeField(blank=True, null=True)
+    stats_before_last_message = models.JSONField(blank=True, null=True)
 
     class Meta:
         db_table = "chat_sessions"
