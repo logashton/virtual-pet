@@ -142,3 +142,57 @@ class PetUploadView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class PetUploadModelView(APIView):
+    """Upload a 3D model (OBJ or GLB) for a pet. Creates a PetAsset with asset_type=MODEL_3D."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            pet = Pet.objects.get(pk=pk)
+        except Pet.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not _can_modify_pet(pet, request.user):
+            return Response(
+                {"detail": "Only the owner or a moderator can upload a 3D model for this pet."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        model_file = request.FILES.get("model")
+        if not model_file:
+            return Response(
+                {"detail": "Missing file field: model (send .obj or .glb)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        name = (getattr(model_file, "name", "") or "").lower()
+        if not name.endswith(".obj") and not name.endswith(".glb"):
+            return Response(
+                {"detail": "File must be .obj or .glb."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        ext = "obj" if name.endswith(".obj") else "glb"
+        rel_path = f"uploads/pets/{pet.id}/{uuid.uuid4().hex}.{ext}"
+        saved_path = default_storage.save(rel_path, model_file)
+        model_url = settings.MEDIA_URL + saved_path
+
+        asset = PetAsset.objects.create(
+            pet=pet,
+            original_image_url="",
+            cutout_image_url=None,
+            model_3d_url=model_url,
+            asset_type=PetAsset.AssetType.MODEL_3D,
+            status=PetAsset.Status.READY,
+        )
+
+        return Response(
+            {
+                "id": asset.id,
+                "pet_id": pet.id,
+                "model_3d_url": asset.model_3d_url,
+                "status": asset.status,
+            },
+            status=status.HTTP_201_CREATED,
+        )

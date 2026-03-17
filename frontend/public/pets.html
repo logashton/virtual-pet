@@ -125,7 +125,12 @@
                     <div class="pet-name">{{ pet.name }}</div>
                     <div class="pet-meta">Updated {{ pet.updated_at|date:"M j, Y g:i A" }}</div>
                   </div>
-                  <a class="btn link" href="{% url 'pet_chat' pet.id %}">Open Chat</a>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    {% if pet.has_3d %}
+                      <span class="sidebar-trait">3D</span>
+                    {% endif %}
+                    <a class="btn link" href="{% url 'pet_chat' pet.id %}">Open Chat</a>
+                  </div>
                 </div>
                 <div class="pet-meta">{{ pet.description }}</div>
                 <div class="pet-row" style="gap:6px;">

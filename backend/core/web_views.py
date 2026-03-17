@@ -8,7 +8,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
 
-from .models import ModerationReport, Pet, User
+from .models import ModerationReport, Pet, PetAsset, User
 
 PET_TRAIT_OPTIONS = [
     "curious",
@@ -32,10 +32,15 @@ DISCOVER_TAG_OPTIONS = PET_TRAIT_OPTIONS[:7]
 
 def _pet_card_data(pet: Pet):
     image_url = None
+    has_3d = False
     for asset in pet.assets.all():
-        if asset.cutout_image_url or asset.original_image_url:
+        if not has_3d and (
+            (getattr(asset, "asset_type", None) == PetAsset.AssetType.MODEL_3D and asset.model_3d_url)
+            or (asset.model_3d_url and not getattr(asset, "asset_type", None))
+        ):
+            has_3d = True
+        if (asset.cutout_image_url or asset.original_image_url) and not image_url:
             image_url = asset.cutout_image_url or asset.original_image_url
-            break
 
     description = ""
     traits = []
@@ -65,6 +70,7 @@ def _pet_card_data(pet: Pet):
         "description": description,
         "traits": traits,
         "image_url": image_url,
+        "has_3d": has_3d,
     }
 
 
@@ -179,8 +185,25 @@ def pet_creator_3d_page(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_GET
 def pet_chat_page(request: HttpRequest, pet_id: int) -> HttpResponse:
-    get_object_or_404(Pet, pk=pet_id)
-    return render(request, "pet_chat.html", {"pet_id": pet_id})
+    pet = get_object_or_404(Pet.objects.prefetch_related("assets"), pk=pet_id)
+    model_3d_url: str | None = None
+    for asset in pet.assets.all():
+        if (
+            getattr(asset, "asset_type", None) == PetAsset.AssetType.MODEL_3D
+            and asset.model_3d_url
+        ):
+            model_3d_url = asset.model_3d_url
+            break
+    return render(
+        request,
+        "pet_chat.html",
+        {
+            "pet_id": pet_id,
+            "pet_name": pet.name,
+            "has_3d": bool(model_3d_url),
+            "model_3d_url": model_3d_url or "",
+        },
+    )
 
 
 @require_http_methods(["GET", "POST"])

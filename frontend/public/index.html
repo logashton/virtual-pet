@@ -159,6 +159,9 @@
                                 {% else %}
                                     <a class="cta" href="{% url 'auth' %}">Login to chat</a>
                                 {% endif %}
+                                {% if pet.has_3d %}
+                                    <span class="tag" title="3D model">3D</span>
+                                {% endif %}
                                 <button class="pet-report-btn report-trigger" type="button" data-pet-id="{{ pet.id }}" data-pet-name="{{ pet.name }}" aria-label="Report {{ pet.name }}">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <path d="M5 3v18"></path>

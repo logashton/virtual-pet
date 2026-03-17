@@ -198,7 +198,8 @@
             <p class="creator-hint">W/S height. A/D Q/E move X/Z. F mirror. C+Arrows camera. +/− scale. V duplicate. Del Esc.</p>
         </div>
         <div style="margin-top: auto;">
-            <button type="button" class="export-btn" id="btn-export">Download .obj</button>
+            <button type="button" class="export-btn" id="btn-export">Create pet from this model</button>
+            <p class="creator-hint">Saves the current 3D model and takes you to pet creation.</p>
             <button type="button" class="clear-btn" id="btn-clear" style="margin-top: 8px;">Clear all</button>
         </div>
     </aside>
@@ -219,8 +220,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
-import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
 const canvas = document.getElementById('creator-canvas');
 const container = document.querySelector('.creator-canvas-wrap');
@@ -812,14 +813,26 @@ colorInput.addEventListener('input', () => {
 });
 
 btnExport.addEventListener('click', () => {
-  const exporter = new OBJExporter();
-  const str = exporter.parse(userGroup);
-  const blob = new Blob([str], { type: 'text/plain' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'pet-creator.obj';
-  a.click();
-  URL.revokeObjectURL(a.href);
+  const exporter = new GLTFExporter();
+  exporter.parse(
+    userGroup,
+    (glb) => {
+      try {
+        const bytes = new Uint8Array(glb);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        const base64 = btoa(binary);
+        window.localStorage.setItem('petCreatorGlb', base64);
+      } catch (e) {
+        // If storage fails, do nothing special — the next page just won’t have a 3D model
+      }
+      window.location.href = '/pets/create/?from3d=1';
+    },
+    (error) => {
+      console.error('GLTF export failed', error);
+    },
+    { binary: true },
+  );
 });
 
 btnClear.addEventListener('click', () => {

@@ -70,6 +70,9 @@
 {% block main_content %}
 <div class="create-page">
         <h1 style="margin: 0 0 18px 0; color: #f5f5f9;">Create a pet</h1>
+        <div id="from-3d-banner" style="display:none;margin-bottom:16px;padding:8px 10px;border-radius:8px;border:1px solid #535385;background:#262639;color:#d6d7f2;font-size:0.84rem;">
+            3D model loaded from the creator. When you create this pet, it will be linked to your current 3D design.
+        </div>
 
         <div class="section-title">The basics</div>
 
@@ -188,6 +191,7 @@
 <script>
 (function () {
     var token = localStorage.getItem('authToken');
+    var importedGlbBase64 = null;
     function authHeaders(extra) {
         var h = extra || {};
         if (token) h['Authorization'] = 'Token ' + token;
@@ -198,6 +202,21 @@
         var el = document.getElementById('create-status');
         el.textContent = msg;
         el.className = 'status-msg' + (type ? ' ' + type : '');
+    }
+
+    // Only treat 3D model as "from creator" when we actually came from the 3D creator (URL has from3d=1)
+    var from3d = /[?&]from3d=1/.test(window.location.search || '');
+    if (from3d) {
+        try {
+            var storedGlb = window.localStorage.getItem('petCreatorGlb');
+            if (storedGlb && storedGlb.trim()) {
+                importedGlbBase64 = storedGlb;
+                var banner = document.getElementById('from-3d-banner');
+                if (banner) banner.style.display = 'block';
+            }
+        } catch (e) {
+            importedGlbBase64 = null;
+        }
     }
 
     // Auth
@@ -402,7 +421,28 @@
                     body: form
                 }).catch(function () {});
             }
-            return petId;
+            if (importedGlbBase64) {
+                setStatus('Uploading 3D model...', '');
+                var binary = atob(importedGlbBase64);
+                var len = binary.length;
+                var bytes = new Uint8Array(len);
+                for (var i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+                var blob = new Blob([bytes], { type: 'model/gltf-binary' });
+                var form = new FormData();
+                form.append('model', blob, 'pet-creator.glb');
+                return fetch('/api/pets/' + petId + '/upload-model/', {
+                    method: 'POST',
+                    headers: authHeaders({}),
+                    body: form
+                })
+                .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+                .then(function (res) {
+                    if (!res.ok) throw new Error(res.data.detail || '3D upload failed');
+                    try { window.localStorage.removeItem('petCreatorGlb'); } catch (e) {}
+                    return petId;
+                });
+            }
+            return Promise.resolve(petId);
         })
         .then(function (petId) {
             setStatus('Done!', 'success');

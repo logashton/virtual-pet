@@ -127,6 +127,17 @@ Returns `201` with uploaded asset metadata:
 `{ "id", "pet_id", "original_image_url", "status" }`.  
 `400` if file missing, `403` if forbidden, `404` if pet not found.
 
+### Upload pet 3D model
+
+`POST /api/pets/<id>/upload-model/`
+
+Requires auth. Owner or staff only.
+
+Body: `multipart/form-data` with file field `model` (`.obj` or `.glb`).
+
+Returns `201` with `{ "id", "pet_id", "model_3d_url", "status" }`.  
+`400` if file missing or not .obj/.glb, `403` if forbidden, `404` if pet not found.
+
 ### Pet personality
 
 `GET /api/pets/<id>/personality/`

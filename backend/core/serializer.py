@@ -149,7 +149,7 @@ class PetUpdateSerializer(serializers.Serializer):
 class PetAssetSerializer(serializers.ModelSerializer):
     class Meta:
         model = PetAsset
-        fields = ('id', 'original_image_url', 'cutout_image_url', 'status', 'asset_type')
+        fields = ('id', 'original_image_url', 'cutout_image_url', 'model_3d_url', 'status', 'asset_type')
 
 class PetSerializer(serializers.ModelSerializer):
     owner = PetOwnerSerializer(read_only=True)
