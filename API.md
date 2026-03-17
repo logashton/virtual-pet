@@ -41,6 +41,24 @@ Requires auth. Returns `200` with `{ "id", "email", "username", "display_name" }
 
 ---
 
+## Remove background (`/api/remove-background/`)
+
+`POST /api/remove-background/`
+
+Requires auth. Body: multipart form with field `image` (image file). Removes the background and returns a PNG with transparency (main subject kept).  
+Returns `200` with `Content-Type: image/png` and body the PNG bytes.  
+Errors: `400` if `image` missing, unreadable, or not a valid image; `500` if removal fails.
+
+### Image to 3D
+
+`POST /api/image-to-3d/`
+
+Requires auth. Body: multipart form with field `image` (image file). Removes background (if needed), extracts the subject contour, builds an extruded 3D mesh with texture, and returns a GLB file (Y-up, ~1 unit size).  
+Returns `200` with `Content-Type: model/gltf-binary` and body the GLB bytes.  
+Errors: `400` if `image` missing, invalid, or no contour found; `500` if conversion fails.
+
+---
+
 ## Pets (`/api/pets/`)
 
 ### List pets

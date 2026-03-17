@@ -168,6 +168,15 @@
             </div>
         </div>
         <div>
+            <h3>Import from image</h3>
+            <input type="file" id="input-image-3d" accept="image/*" style="display:none">
+            <button type="button" class="tool-btn" id="btn-import-image" title="Upload a photo; we remove the background and add it as 3D">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                Image to 3D
+            </button>
+            <p class="creator-hint" id="image-3d-status">Upload a photo; background is removed and added as a 3D cutout. Log in required.</p>
+        </div>
+        <div>
             <h3>Shapes</h3>
             <div class="shapes-row">
                 <button type="button" class="shape-btn" data-shape="line">Line</button>
@@ -211,6 +220,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const canvas = document.getElementById('creator-canvas');
 const container = document.querySelector('.creator-canvas-wrap');
@@ -218,6 +228,9 @@ const colorInput = document.getElementById('creator-color');
 const btnDraw = document.getElementById('btn-draw');
 const btnExport = document.getElementById('btn-export');
 const btnClear = document.getElementById('btn-clear');
+const btnImportImage = document.getElementById('btn-import-image');
+const inputImage3d = document.getElementById('input-image-3d');
+const image3dStatus = document.getElementById('image-3d-status');
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a1a24);
@@ -710,6 +723,61 @@ function addShape(type) {
 
 document.querySelectorAll('.shape-btn[data-shape]').forEach((btn) => {
   btn.addEventListener('click', () => addShape(btn.getAttribute('data-shape')));
+});
+
+const gltfLoader = new GLTFLoader();
+btnImportImage.addEventListener('click', () => inputImage3d.click());
+inputImage3d.addEventListener('change', async (e) => {
+  const file = e.target && e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const token = window.localStorage && window.localStorage.getItem('authToken');
+  if (!token) {
+    image3dStatus.textContent = 'Please log in to use Image to 3D.';
+    return;
+  }
+  image3dStatus.textContent = 'Processing…';
+  try {
+    const form = new FormData();
+    form.append('image', file);
+    const r = await fetch('/api/image-to-3d/', {
+      method: 'POST',
+      headers: { 'Authorization': 'Token ' + token },
+      body: form,
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      image3dStatus.textContent = err.detail || 'Image to 3D failed.';
+      return;
+    }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const gltf = await gltfLoader.loadAsync(url);
+    URL.revokeObjectURL(url);
+    const model = gltf.scene;
+    model.traverse((o) => {
+      if (o.isMesh) {
+        o.castShadow = true;
+        o.receiveShadow = true;
+        if (o.material) {
+          o.material.transparent = true;
+          o.material.side = THREE.DoubleSide;
+          o.material.depthWrite = true;
+        }
+      }
+    });
+    model.position.set(0, 0.5, 0);
+    userGroup.add(model);
+    transformControls.detach();
+    selectedObject = model;
+    transformControls.attach(model);
+    transformControls.setMode('translate');
+    drawMode = false;
+    btnDraw.classList.remove('active');
+    image3dStatus.textContent = 'Added to scene. Move/rotate/scale with tools.';
+  } catch (err) {
+    image3dStatus.textContent = 'Failed to load 3D model.';
+  }
 });
 
 document.querySelectorAll('.transform-mode').forEach((btn) => {

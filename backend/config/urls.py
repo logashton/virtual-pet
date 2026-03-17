@@ -4,6 +4,8 @@ from django.conf.urls.static import static
 from django.urls import include, path
 
 from core import web_views
+from core.views_background import RemoveBackgroundView
+from core.views_image_to_3d import ImageTo3DView
 
 
 urlpatterns = [
@@ -18,6 +20,8 @@ urlpatterns = [
     path("api/pets/", include("core.pets_urls")),
     path("api/moderation-reports/", include("core.moderation_urls")),
     path("api/admin/", include("core.admin_urls")),
+    path("api/remove-background/", RemoveBackgroundView.as_view(), name="remove_background"),
+    path("api/image-to-3d/", ImageTo3DView.as_view(), name="image_to_3d"),
     path("chat/", include("chat.urls")),
     path("admin/", admin.site.urls),
     path("pets/<int:pet_id>/chat/", web_views.pet_chat_page, name="pet_chat"),
