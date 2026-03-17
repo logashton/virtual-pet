@@ -17,6 +17,7 @@ backend/db.sqlite3
 backend/.env
 backend/media/
 backend/staticfiles/
+virtual-pet/media/uploads/
 
 # Root .env file (keep .env.example for reference)
 .env
