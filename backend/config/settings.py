@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -9,6 +10,12 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROJECT_DIR = BASE_DIR.parent
+
+RUNNING_TESTS = (
+    "test" in sys.argv
+    or os.getenv("DJANGO_TESTING") == "1"
+    or (len(sys.argv) > 0 and "pytest" in sys.argv[0])
+)
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "erm")
 DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
@@ -59,16 +66,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB", "virtual_pet_testing"),
-        "USER": os.getenv("POSTGRES_USER", "postgres"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "postgres"),
-        "HOST": os.getenv("POSTGRES_HOST", "localhost"),
-        "PORT": int(os.getenv("POSTGRES_PORT", "5432")),
+if RUNNING_TESTS:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("POSTGRES_DB", "virtual_pet_testing"),
+            "USER": os.getenv("POSTGRES_USER", "postgres"),
+            "PASSWORD": os.getenv("POSTGRES_PASSWORD", "postgres"),
+            "HOST": os.getenv("POSTGRES_HOST", "localhost"),
+            "PORT": int(os.getenv("POSTGRES_PORT", "5432")),
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = []
 
@@ -82,7 +97,10 @@ STATICFILES_DIRS = [
     PROJECT_DIR / "frontend" / "public",
 ]
 MEDIA_URL = "/media/"
-MEDIA_ROOT = PROJECT_DIR / "media"
+MEDIA_ROOT = (Path(os.environ.get("DJANGO_MEDIA_ROOT", "")) or (PROJECT_DIR / "media")).resolve()
+if RUNNING_TESTS:
+    import tempfile
+    MEDIA_ROOT = Path(tempfile.mkdtemp(prefix="vp_test_media_"))
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Custom user table/schema lives in database/init_db.sql
