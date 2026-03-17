@@ -18,6 +18,8 @@ backend/.env
 backend/media/
 backend/staticfiles/
 virtual-pet/media/uploads/
+virtual-pet/media/uploads/*
+virtual-pet/media/uploads/pets/*
 
 # Root .env file (keep .env.example for reference)
 .env
