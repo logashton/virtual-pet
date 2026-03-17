@@ -10,3 +10,5 @@ trimesh
 scikit-image
 shapely
 numpy
+torch
+transformers
