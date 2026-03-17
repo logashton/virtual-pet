@@ -23,8 +23,7 @@ urlpatterns = [
     path("pets/<int:pet_id>/chat/", web_views.pet_chat_page, name="pet_chat"),
     path("api/pets/", include("core.stats_urls")),
     path("pets/create/", web_views.create_pet_page, name="pet_create"),
-    
-    
+    path("pets/create-3d/", web_views.pet_creator_3d_page, name="pet_creator_3d"),
 ]
 
 if settings.DEBUG:

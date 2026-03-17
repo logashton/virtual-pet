@@ -172,6 +172,12 @@ def create_pet_page(request: HttpRequest) -> HttpResponse:
 
 @login_required
 @require_GET
+def pet_creator_3d_page(request: HttpRequest) -> HttpResponse:
+    return render(request, "pet_creator_3d.html")
+
+
+@login_required
+@require_GET
 def pet_chat_page(request: HttpRequest, pet_id: int) -> HttpResponse:
     get_object_or_404(Pet, pk=pet_id)
     return render(request, "pet_chat.html", {"pet_id": pet_id})

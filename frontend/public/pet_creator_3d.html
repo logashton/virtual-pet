@@ -1,0 +1,842 @@
+{% extends "discover_base.html" %}
+
+{% block page_title %}3D Pet Creator – virtual-pet{% endblock %}
+{% block topbar_class %} with-back{% endblock %}
+{% block topbar_leading %}<a class="back-home" href="{% url 'home' %}" aria-label="Back to home">←</a>{% endblock %}
+{% block topbar_middle %}<h1 style="margin:0;color:#f5f5f9;">3D Pet Creator</h1>{% endblock %}
+{% block topbar_trailing %}{% endblock %}
+
+{% block main_prefix %}
+<style>
+    .creator-wrap {
+        display: flex;
+        gap: 0;
+        min-height: calc(100vh - 120px);
+        margin: -8px -10px 0;
+    }
+    .creator-toolbar {
+        width: 200px;
+        flex-shrink: 0;
+        background: #1a1a22;
+        border-right: 1px solid #2d2d33;
+        padding: 14px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .creator-toolbar h3 {
+        margin: 0 0 6px;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #8e8e9b;
+    }
+    .creator-canvas-wrap {
+        flex: 1;
+        position: relative;
+        background: #0d0d10;
+    }
+    #creator-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        inset: 0;
+    }
+    .tool-btn {
+        width: 100%;
+        padding: 9px 12px;
+        border-radius: 10px;
+        border: 1px solid #3b3b47;
+        background: #24242d;
+        color: #e0e0eb;
+        font-size: 0.88rem;
+        cursor: pointer;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .tool-btn:hover {
+        background: #2a2a35;
+        border-color: #4a4a5e;
+    }
+    .tool-btn.active {
+        background: #3f3f68;
+        border-color: #6464a7;
+        color: #fff;
+    }
+    .tool-btn svg {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+    }
+    .shapes-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .shape-btn {
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid #3b3b47;
+        background: #24242d;
+        color: #c4c6db;
+        font-size: 0.8rem;
+        cursor: pointer;
+    }
+    .shape-btn:hover {
+        border-color: #6f6fc0;
+        color: #ececff;
+    }
+    .shape-btn.active, .transform-mode.active {
+        background: #3f3f68;
+        border-color: #6464a7;
+        color: #fff;
+    }
+    .color-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .color-row label {
+        font-size: 0.84rem;
+        color: #b8bbd1;
+    }
+    input[type="color"] {
+        width: 36px;
+        height: 36px;
+        border: 2px solid #3b3b47;
+        border-radius: 8px;
+        padding: 2px;
+        background: #24242d;
+        cursor: pointer;
+    }
+    .export-btn, .clear-btn {
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid;
+    }
+    .export-btn {
+        background: #4a4a78;
+        border-color: #5f5f9a;
+        color: #fff;
+    }
+    .export-btn:hover { background: #56568a; }
+    .clear-btn {
+        background: #2a2a32;
+        border-color: #4a3c3c;
+        color: #e8b4b4;
+    }
+    .clear-btn:hover { background: #352828; }
+    .creator-hint {
+        font-size: 0.78rem;
+        color: #6e6e80;
+        margin-top: 4px;
+    }
+    select.creator-select, input[type="range"] {
+        background: #24242d;
+        color: #e0e0eb;
+        border: 1px solid #3b3b47;
+        border-radius: 8px;
+    }
+    input[type="range"] {
+        accent-color: #6464a7;
+    }
+</style>
+{% endblock %}
+
+{% block main_content %}
+<div class="creator-wrap">
+    <aside class="creator-toolbar">
+        <div>
+            <h3>Draw</h3>
+            <button type="button" class="tool-btn" id="btn-draw" title="Click and drag on the ground to draw">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+                Draw
+            </button>
+            <p class="creator-hint">Drag to draw. W/S height. +/− stroke thickness while drawing.</p>
+        </div>
+        <div>
+            <h3>Color</h3>
+            <div class="color-row">
+                <label for="creator-color">Current</label>
+                <input type="color" id="creator-color" value="#7b68c9" title="Color for new shapes and strokes">
+            </div>
+        </div>
+        <div>
+            <h3>Shapes</h3>
+            <div class="shapes-row">
+                <button type="button" class="shape-btn" data-shape="line">Line</button>
+                <button type="button" class="shape-btn" data-shape="cube">Cube</button>
+                <button type="button" class="shape-btn" data-shape="sphere">Sphere</button>
+                <button type="button" class="shape-btn" data-shape="cylinder">Cylinder</button>
+                <button type="button" class="shape-btn" data-shape="cone">Cone</button>
+                <button type="button" class="shape-btn" data-shape="torus">Torus</button>
+            </div>
+            <p class="creator-hint">Click a shape to add it to the scene.</p>
+        </div>
+        <div>
+            <h3>Edit selected</h3>
+            <div class="shapes-row">
+                <button type="button" class="shape-btn transform-mode active" data-mode="translate" title="Move (M)">Move (M)</button>
+                <button type="button" class="shape-btn transform-mode" data-mode="rotate" title="Rotate (R)">Rotate (R)</button>
+                <button type="button" class="shape-btn transform-mode" data-mode="scale" title="Scale (Z)">Scale (Z)</button>
+            </div>
+            <p class="creator-hint">W/S height. A/D Q/E move X/Z. F mirror. C+Arrows camera. +/− scale. V duplicate. Del Esc.</p>
+        </div>
+        <div style="margin-top: auto;">
+            <button type="button" class="export-btn" id="btn-export">Download .obj</button>
+            <button type="button" class="clear-btn" id="btn-clear" style="margin-top: 8px;">Clear all</button>
+        </div>
+    </aside>
+    <div class="creator-canvas-wrap">
+        <canvas id="creator-canvas"></canvas>
+    </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
+
+const canvas = document.getElementById('creator-canvas');
+const container = document.querySelector('.creator-canvas-wrap');
+const colorInput = document.getElementById('creator-color');
+const btnDraw = document.getElementById('btn-draw');
+const btnExport = document.getElementById('btn-export');
+const btnClear = document.getElementById('btn-clear');
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1a24);
+
+const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 100);
+camera.position.set(2.8, 2.2, 2.8);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const ambient = new THREE.AmbientLight(0x505078, 0.7);
+scene.add(ambient);
+const hemi = new THREE.HemisphereLight(0x606090, 0x282840, 0.65);
+scene.add(hemi);
+const dir = new THREE.DirectionalLight(0xeeeef8, 1.0);
+dir.position.set(5, 8, 4);
+dir.castShadow = true;
+dir.shadow.mapSize.width = 2048;
+dir.shadow.mapSize.height = 2048;
+scene.add(dir);
+const fill = new THREE.DirectionalLight(0x8080c0, 0.5);
+fill.position.set(-4, 6, -3);
+scene.add(fill);
+const rim = new THREE.DirectionalLight(0xa0a0e0, 0.4);
+rim.position.set(0, 4, -6);
+scene.add(rim);
+
+const FLOOR_SIZE = 4;
+const GRID_DIVISIONS = 8;
+const MAX_HEIGHT = 2;
+
+const grid = new THREE.GridHelper(FLOOR_SIZE, GRID_DIVISIONS, 0x2a2a35, 0x22222c);
+grid.position.y = -0.01;
+scene.add(grid);
+
+const groundGeometry = new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE);
+const groundMaterial = new THREE.MeshBasicMaterial({ visible: false });
+const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
+
+const floorMat = new THREE.MeshStandardMaterial({
+  color: 0x1a1a24,
+  roughness: 1,
+  metalness: 0,
+});
+const floorMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE),
+  floorMat
+);
+floorMesh.rotation.x = -Math.PI / 2;
+floorMesh.receiveShadow = true;
+scene.add(floorMesh);
+
+const ceilingMat = new THREE.MeshBasicMaterial({
+  color: 0x15151c,
+  transparent: true,
+  opacity: 0.5,
+  side: THREE.DoubleSide,
+});
+const ceilingMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE),
+  ceilingMat
+);
+ceilingMesh.rotation.x = -Math.PI / 2;
+ceilingMesh.position.y = MAX_HEIGHT;
+scene.add(ceilingMesh);
+
+const brushGuideMat = new THREE.MeshBasicMaterial({
+  color: 0x4a4a78,
+  transparent: true,
+  opacity: 0.22,
+  side: THREE.DoubleSide,
+  depthWrite: false,
+});
+const brushGuidePlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE),
+  brushGuideMat
+);
+brushGuidePlane.rotation.x = -Math.PI / 2;
+brushGuidePlane.visible = false;
+scene.add(brushGuidePlane);
+
+const userGroup = new THREE.Group();
+userGroup.name = 'userGroup';
+scene.add(userGroup);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.screenSpacePanning = true;
+
+const transformControls = new TransformControls(camera, canvas);
+transformControls.setMode('translate');
+transformControls.setSize(0.8);
+scene.add(transformControls);
+
+transformControls.addEventListener('dragging-changed', (e) => {
+  controls.enabled = !e.value;
+});
+
+let selectedObject = null;
+transformControls.addEventListener('objectChange', () => {
+  if (selectedObject && selectedObject.position) {
+    selectedObject.position.y = Math.max(0, Math.min(MAX_HEIGHT, selectedObject.position.y));
+  }
+});
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+
+const HALF = FLOOR_SIZE / 2;
+
+let brushHeight = 0.5;
+const BRUSH_HEIGHT_STEP = 0.012;
+const drawPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const drawPlaneTarget = new THREE.Vector3();
+
+let lastBrushXZ = null;
+
+function setBrushHeight(h) {
+  brushHeight = Math.max(0, Math.min(MAX_HEIGHT, h));
+  brushGuidePlane.position.y = brushHeight;
+  brushGuidePlane.visible = drawMode;
+  if (lastBrushXZ !== null && drawMode) {
+    brushCursor.scale.setScalar(strokeRadius / BRUSH_GEOM_SIZE);
+    brushCursor.position.set(lastBrushXZ.x, brushHeight + strokeRadius, lastBrushXZ.z);
+    brushCursor.visible = true;
+  }
+}
+
+function getIntersection(event) {
+  drawPlane.constant = -brushHeight;
+  const rect = canvas.getBoundingClientRect();
+  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hit = raycaster.ray.intersectPlane(drawPlane, drawPlaneTarget);
+  if (!hit) return null;
+  hit.x = Math.max(-HALF, Math.min(HALF, hit.x));
+  hit.z = Math.max(-HALF, Math.min(HALF, hit.z));
+  hit.y = brushHeight;
+  return hit.clone();
+}
+
+function hexToThree(colorHex) {
+  const c = new THREE.Color(colorHex);
+  return c;
+}
+
+let drawMode = false;
+let currentStroke = [];
+let strokeRadius = 0.012;
+const MIN_STROKE_RADIUS = 0.004;
+const MAX_STROKE_RADIUS = 0.05;
+const STROKE_RADIUS_STEP = 0.003;
+const TUBE_RADIAL_SEGMENTS = 6;
+const BRUSH_GEOM_SIZE = 0.06;
+const MIN_POINT_DISTANCE = 0.02;
+
+const brushGeometry = new THREE.SphereGeometry(BRUSH_GEOM_SIZE, 12, 12);
+const brushMaterial = new THREE.MeshBasicMaterial({
+  color: 0x7b68c9,
+  transparent: true,
+  opacity: 0.85,
+  depthTest: true,
+  depthWrite: false,
+});
+const brushCursor = new THREE.Mesh(brushGeometry, brushMaterial);
+brushCursor.visible = false;
+scene.add(brushCursor);
+
+const previewLineMaterial = new THREE.LineBasicMaterial({
+  color: 0x7b68c9,
+  linewidth: 1,
+  transparent: true,
+  opacity: 0.9,
+});
+const previewLineGeometry = new THREE.BufferGeometry();
+const previewLine = new THREE.Line(previewLineGeometry, previewLineMaterial);
+previewLine.visible = false;
+scene.add(previewLine);
+
+function updateBrushCursor(point) {
+  if (!point) {
+    if (!drawMode) brushCursor.visible = false;
+    return;
+  }
+  lastBrushXZ = { x: point.x, z: point.z };
+  const scale = strokeRadius / BRUSH_GEOM_SIZE;
+  brushCursor.scale.setScalar(scale);
+  brushCursor.position.set(point.x, brushHeight + strokeRadius, point.z);
+  brushCursor.material.color.copy(hexToThree(colorInput.value));
+  brushCursor.visible = drawMode;
+  brushGuidePlane.position.y = brushHeight;
+  brushGuidePlane.visible = drawMode;
+}
+
+function updatePreviewLine() {
+  if (currentStroke.length < 2) {
+    previewLine.visible = false;
+    return;
+  }
+  const positions = new Float32Array(currentStroke.length * 3);
+  currentStroke.forEach((p, i) => {
+    positions[i * 3] = p.x;
+    positions[i * 3 + 1] = p.y;
+    positions[i * 3 + 2] = p.z;
+  });
+  previewLineGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  previewLineGeometry.setDrawRange(0, currentStroke.length);
+  previewLineGeometry.attributes.position.needsUpdate = true;
+  previewLineGeometry.computeBoundingSphere();
+  previewLine.material.color.copy(hexToThree(colorInput.value));
+  previewLine.visible = true;
+}
+
+function finishStroke() {
+  previewLine.visible = false;
+  if (currentStroke.length < 2) {
+    currentStroke = [];
+    return;
+  }
+  const path = new THREE.CatmullRomCurve3(currentStroke, false);
+  const tubeGeometry = new THREE.TubeGeometry(
+    path,
+    Math.max(currentStroke.length * 2, 24),
+    strokeRadius,
+    TUBE_RADIAL_SEGMENTS,
+    false
+  );
+  const color = hexToThree(colorInput.value);
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.1 });
+  const mesh = new THREE.Mesh(tubeGeometry, mat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  userGroup.add(mesh);
+  currentStroke = [];
+}
+
+function onPointerDown(event) {
+  if (event.button !== 0) return;
+  const point = getIntersection(event);
+  if (!point) return;
+  if (drawMode) {
+    currentStroke.push(point.clone());
+    updatePreviewLine();
+    isDrawing = true;
+    controls.enabled = false;
+  }
+}
+
+function onPointerMove(event) {
+  const point = getIntersection(event);
+  if (drawMode) {
+    updateBrushCursor(point);
+    if (isDrawing && point) {
+      const last = currentStroke[currentStroke.length - 1];
+      if (!last || last.distanceTo(point) >= MIN_POINT_DISTANCE) {
+        currentStroke.push(point.clone());
+        updatePreviewLine();
+      }
+    }
+  } else {
+    brushCursor.visible = false;
+  }
+}
+
+let isDrawing = false;
+
+function onPointerUp(event) {
+  if (event.button !== 0) return;
+  if (drawMode && isDrawing) {
+    isDrawing = false;
+    controls.enabled = true;
+    finishStroke();
+  }
+}
+
+canvas.addEventListener('pointerdown', onPointerDown);
+canvas.addEventListener('pointermove', onPointerMove);
+canvas.addEventListener('pointerup', onPointerUp);
+canvas.addEventListener('pointerleave', (event) => {
+  if (drawMode && isDrawing) {
+    isDrawing = false;
+    controls.enabled = true;
+    finishStroke();
+  }
+  onPointerUp(event);
+  updateBrushCursor(null);
+});
+
+btnDraw.addEventListener('click', () => {
+  drawMode = !drawMode;
+  btnDraw.classList.toggle('active', drawMode);
+  if (!drawMode) {
+    finishStroke();
+    brushGuidePlane.visible = false;
+    brushCursor.visible = false;
+  } else {
+    brushGuidePlane.position.y = brushHeight;
+    brushGuidePlane.visible = true;
+    if (lastBrushXZ) {
+      brushCursor.scale.setScalar(strokeRadius / BRUSH_GEOM_SIZE);
+      brushCursor.position.set(lastBrushXZ.x, brushHeight + strokeRadius, lastBrushXZ.z);
+    }
+  }
+  transformControls.detach();
+  selectedObject = null;
+});
+
+const PAN_SPEED = 0.08;
+const CAMERA_VERTICAL_SPEED = 0.06;
+const OBJECT_MOVE_STEP = 0.04;
+const SCALE_STEP = 0.025;
+const MIN_SCALE = 0.05;
+const MAX_SCALE = 5;
+
+const keys = {
+  w: false, s: false,
+  a: false, d: false, q: false, e: false,
+  c: false,
+  ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false,
+  minus: false, plus: false,
+};
+
+function setTransformMode(mode) {
+  transformControls.setMode(mode);
+  document.querySelectorAll('.transform-mode').forEach((b) => {
+    b.classList.toggle('active', b.getAttribute('data-mode') === mode);
+  });
+}
+
+function onKeyDown(e) {
+  const k = e.key.toLowerCase();
+  if (k === 'w') { keys.w = true; e.preventDefault(); }
+  if (k === 's') { keys.s = true; e.preventDefault(); }
+  if (k === 'a') { keys.a = true; e.preventDefault(); }
+  if (k === 'd') { keys.d = true; e.preventDefault(); }
+  if (k === 'q') { keys.q = true; e.preventDefault(); }
+  if (k === 'e') { keys.e = true; e.preventDefault(); }
+  if (k === 'c') { keys.c = true; e.preventDefault(); }
+  if (e.key === 'ArrowLeft') { keys.ArrowLeft = true; e.preventDefault(); }
+  if (e.key === 'ArrowRight') { keys.ArrowRight = true; e.preventDefault(); }
+  if (e.key === 'ArrowUp') { keys.ArrowUp = true; e.preventDefault(); }
+  if (e.key === 'ArrowDown') { keys.ArrowDown = true; e.preventDefault(); }
+
+  if (e.key === '-' || e.key === 'Minus') { keys.minus = true; e.preventDefault(); }
+  if (e.key === '=' || e.key === '+' || e.key === 'Equal') { keys.plus = true; e.preventDefault(); }
+
+  if (k === 'm') { setTransformMode('translate'); e.preventDefault(); }
+  if (k === 'r') { setTransformMode('rotate'); e.preventDefault(); }
+  if (k === 'z') { setTransformMode('scale'); e.preventDefault(); }
+
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selectedObject && !e.target.matches('input, textarea')) {
+      e.preventDefault();
+      userGroup.remove(selectedObject);
+      if (selectedObject.geometry) selectedObject.geometry.dispose();
+      if (selectedObject.material) {
+        if (Array.isArray(selectedObject.material)) selectedObject.material.forEach((m) => m.dispose());
+        else selectedObject.material.dispose();
+      }
+      transformControls.detach();
+      selectedObject = null;
+    }
+  }
+  if (e.key === 'Escape') {
+    transformControls.detach();
+    selectedObject = null;
+    e.preventDefault();
+  }
+  if (k === 'v' && selectedObject && !e.target.matches('input, textarea')) {
+    duplicateSelected();
+    e.preventDefault();
+  }
+  if (k === 'f' && selectedObject && !e.target.matches('input, textarea')) {
+    mirrorSelected();
+    e.preventDefault();
+  }
+}
+
+function mirrorSelected() {
+  if (!selectedObject) return;
+  const clone = selectedObject.clone();
+  if (clone.geometry) clone.geometry = selectedObject.geometry.clone();
+  if (clone.material) clone.material = selectedObject.material.clone();
+  clone.position.x = -selectedObject.position.x;
+  clone.position.y = selectedObject.position.y;
+  clone.position.z = selectedObject.position.z;
+  clone.scale.x = -selectedObject.scale.x;
+  clone.scale.y = selectedObject.scale.y;
+  clone.scale.z = selectedObject.scale.z;
+  clone.rotation.x = selectedObject.rotation.x;
+  clone.rotation.y = -selectedObject.rotation.y;
+  clone.rotation.z = -selectedObject.rotation.z;
+  clone.castShadow = true;
+  clone.receiveShadow = true;
+  userGroup.add(clone);
+  transformControls.detach();
+  selectedObject = clone;
+  transformControls.attach(clone);
+}
+
+function duplicateSelected() {
+  if (!selectedObject) return;
+  const clone = selectedObject.clone();
+  if (clone.geometry) clone.geometry = selectedObject.geometry.clone();
+  if (clone.material) clone.material = selectedObject.material.clone();
+  clone.position.x += 0.15;
+  clone.position.z += 0.15;
+  clone.castShadow = true;
+  clone.receiveShadow = true;
+  userGroup.add(clone);
+  transformControls.detach();
+  selectedObject = clone;
+  transformControls.attach(clone);
+}
+
+function onKeyUp(e) {
+  const k = e.key.toLowerCase();
+  if (k === 'w') keys.w = false;
+  if (k === 's') keys.s = false;
+  if (k === 'a') keys.a = false;
+  if (k === 'd') keys.d = false;
+  if (k === 'q') keys.q = false;
+  if (k === 'e') keys.e = false;
+  if (k === 'c') keys.c = false;
+  if (e.key === 'ArrowLeft') keys.ArrowLeft = false;
+  if (e.key === 'ArrowRight') keys.ArrowRight = false;
+  if (e.key === 'ArrowUp') keys.ArrowUp = false;
+  if (e.key === 'ArrowDown') keys.ArrowDown = false;
+  if (e.key === '-' || e.key === 'Minus') keys.minus = false;
+  if (e.key === '=' || e.key === '+' || e.key === 'Equal') keys.plus = false;
+}
+
+window.addEventListener('keydown', onKeyDown);
+window.addEventListener('keyup', onKeyUp);
+
+setBrushHeight(brushHeight);
+
+const SHAPE_SCALE = 0.4;
+
+function addShape(type) {
+  const color = hexToThree(colorInput.value);
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.1 });
+  let geometry;
+  switch (type) {
+    case 'line':
+      geometry = new THREE.CylinderGeometry(0.015, 0.015, SHAPE_SCALE * 1.2, 8);
+      break;
+    case 'cube':
+      geometry = new THREE.BoxGeometry(SHAPE_SCALE, SHAPE_SCALE, SHAPE_SCALE);
+      break;
+    case 'sphere':
+      geometry = new THREE.SphereGeometry(SHAPE_SCALE * 0.5, 24, 24);
+      break;
+    case 'cylinder':
+      geometry = new THREE.CylinderGeometry(SHAPE_SCALE * 0.5, SHAPE_SCALE * 0.5, SHAPE_SCALE, 24);
+      break;
+    case 'cone':
+      geometry = new THREE.CylinderGeometry(0, SHAPE_SCALE * 0.5, SHAPE_SCALE, 24);
+      break;
+    case 'torus':
+      geometry = new THREE.TorusGeometry(SHAPE_SCALE * 0.4, SHAPE_SCALE * 0.2, 16, 32);
+      break;
+    default:
+      return;
+  }
+  const mesh = new THREE.Mesh(geometry, mat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  if (type === 'line') {
+    mesh.position.set(0, (SHAPE_SCALE * 1.2) / 2, 0);
+  } else {
+    mesh.position.set(0, SHAPE_SCALE * 0.5, 0);
+  }
+  userGroup.add(mesh);
+
+  transformControls.detach();
+  selectedObject = mesh;
+  transformControls.attach(mesh);
+  transformControls.setMode('translate');
+  drawMode = false;
+  btnDraw.classList.remove('active');
+}
+
+document.querySelectorAll('.shape-btn[data-shape]').forEach((btn) => {
+  btn.addEventListener('click', () => addShape(btn.getAttribute('data-shape')));
+});
+
+document.querySelectorAll('.transform-mode').forEach((btn) => {
+  btn.addEventListener('click', () => setTransformMode(btn.getAttribute('data-mode')));
+});
+
+canvas.addEventListener('click', (event) => {
+  if (drawMode || isDrawing) return;
+  const rect = canvas.getBoundingClientRect();
+  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const meshes = [];
+  userGroup.traverse((o) => { if (o.isMesh) meshes.push(o); });
+  const hits = raycaster.intersectObjects(meshes);
+  if (hits.length) {
+    const obj = hits[0].object;
+    transformControls.detach();
+    selectedObject = obj;
+    transformControls.attach(obj);
+    colorInput.value = '#' + (selectedObject.material.color.getHexString());
+  } else {
+    transformControls.detach();
+    selectedObject = null;
+  }
+});
+
+colorInput.addEventListener('input', () => {
+  if (selectedObject && selectedObject.material && selectedObject.material.color) {
+    selectedObject.material.color.copy(hexToThree(colorInput.value));
+  }
+});
+
+btnExport.addEventListener('click', () => {
+  const exporter = new OBJExporter();
+  const str = exporter.parse(userGroup);
+  const blob = new Blob([str], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'pet-creator.obj';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+btnClear.addEventListener('click', () => {
+  while (userGroup.children.length) {
+    const o = userGroup.children[0];
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) {
+      if (Array.isArray(o.material)) o.material.forEach(m => m.dispose());
+      else o.material.dispose();
+    }
+    userGroup.remove(o);
+  }
+  transformControls.detach();
+  selectedObject = null;
+  currentStroke = [];
+  previewLine.visible = false;
+});
+
+function onResize() {
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+onResize();
+window.addEventListener('resize', onResize);
+
+const panVec = new THREE.Vector3();
+const forwardXZ = new THREE.Vector3();
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  if (keys.w) {
+    if (selectedObject && selectedObject.position) {
+      selectedObject.position.y = Math.min(MAX_HEIGHT, selectedObject.position.y + BRUSH_HEIGHT_STEP);
+    } else {
+      setBrushHeight(brushHeight + BRUSH_HEIGHT_STEP);
+    }
+  }
+  if (keys.s) {
+    if (selectedObject && selectedObject.position) {
+      selectedObject.position.y = Math.max(0, selectedObject.position.y - BRUSH_HEIGHT_STEP);
+    } else {
+      setBrushHeight(brushHeight - BRUSH_HEIGHT_STEP);
+    }
+  }
+
+  if (keys.c && (keys.ArrowUp || keys.ArrowDown)) {
+    if (keys.ArrowUp) { camera.position.y += CAMERA_VERTICAL_SPEED; controls.target.y += CAMERA_VERTICAL_SPEED; }
+    if (keys.ArrowDown) { camera.position.y -= CAMERA_VERTICAL_SPEED; controls.target.y -= CAMERA_VERTICAL_SPEED; }
+  } else if (keys.ArrowLeft || keys.ArrowRight || keys.ArrowUp || keys.ArrowDown) {
+    forwardXZ.subVectors(controls.target, camera.position).setY(0).normalize();
+    if (forwardXZ.x === 0 && forwardXZ.z === 0) forwardXZ.set(0, 0, 1);
+    if (keys.ArrowLeft) { panVec.set(-forwardXZ.z, 0, forwardXZ.x).multiplyScalar(PAN_SPEED); camera.position.sub(panVec); controls.target.sub(panVec); }
+    if (keys.ArrowRight) { panVec.set(-forwardXZ.z, 0, forwardXZ.x).multiplyScalar(PAN_SPEED); camera.position.add(panVec); controls.target.add(panVec); }
+    if (keys.ArrowUp) { panVec.copy(forwardXZ).multiplyScalar(PAN_SPEED); camera.position.add(panVec); controls.target.add(panVec); }
+    if (keys.ArrowDown) { panVec.copy(forwardXZ).multiplyScalar(PAN_SPEED); camera.position.sub(panVec); controls.target.sub(panVec); }
+  }
+
+  if (selectedObject && selectedObject.position) {
+    if (keys.a) selectedObject.position.x = Math.max(-HALF, selectedObject.position.x - OBJECT_MOVE_STEP);
+    if (keys.d) selectedObject.position.x = Math.min(HALF, selectedObject.position.x + OBJECT_MOVE_STEP);
+    if (keys.q) selectedObject.position.z = Math.max(-HALF, selectedObject.position.z - OBJECT_MOVE_STEP);
+    if (keys.e) selectedObject.position.z = Math.min(HALF, selectedObject.position.z + OBJECT_MOVE_STEP);
+  }
+
+  if (drawMode && (keys.plus || keys.minus)) {
+    if (keys.plus) strokeRadius = Math.min(MAX_STROKE_RADIUS, strokeRadius + STROKE_RADIUS_STEP);
+    if (keys.minus) strokeRadius = Math.max(MIN_STROKE_RADIUS, strokeRadius - STROKE_RADIUS_STEP);
+  } else if (selectedObject && selectedObject.scale) {
+    if (keys.minus) {
+      selectedObject.scale.multiplyScalar(1 - SCALE_STEP);
+      selectedObject.scale.clampScalar(MIN_SCALE, MAX_SCALE);
+    }
+    if (keys.plus) {
+      selectedObject.scale.multiplyScalar(1 + SCALE_STEP);
+      selectedObject.scale.clampScalar(MIN_SCALE, MAX_SCALE);
+    }
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+{% endblock %}
