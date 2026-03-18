@@ -4,7 +4,6 @@
 
 with virtualenv activated and dependencies installed:
 
-```bash
 # Run all tests (core + chat)
 python manage.py test core chat
 
