@@ -1,18 +1,16 @@
 // Digital Pet Game
 class Pet {
     constructor() {
-        this.name = 'Fluffy';
+        this.name = "Fluffy";
         this.hunger = 50;
         this.happiness = 75;
         this.energy = 80;
         this.health = 90;
-        this.petEmoji = '🐱';
-        this.age = 0;
+        this.petEmoji = "🐱";
         this.lastUpdate = Date.now();
         this.loadGame();
     }
 
-    // Save game to localStorage
     saveGame() {
         const gameState = {
             name: this.name,
@@ -21,53 +19,44 @@ class Pet {
             energy: this.energy,
             health: this.health,
             petEmoji: this.petEmoji,
-            age: this.age,
             lastUpdate: Date.now()
         };
-        localStorage.setItem('petGameState', JSON.stringify(gameState));
+
+        localStorage.setItem("petGameState", JSON.stringify(gameState));
     }
 
-    // Load game from localStorage
     loadGame() {
-        const saved = localStorage.getItem('petGameState');
+        const saved = localStorage.getItem("petGameState");
+
         if (saved) {
             const gameState = JSON.parse(saved);
-            this.name = gameState.name;
-            this.hunger = gameState.hunger;
-            this.happiness = gameState.happiness;
-            this.energy = gameState.energy;
-            this.health = gameState.health;
-            this.petEmoji = gameState.petEmoji;
-            this.age = gameState.age;
-            this.lastUpdate = gameState.lastUpdate;
-            
-            // Apply time-based degradation
-            this.updateStats();
+            this.name = gameState.name ?? "Fluffy";
+            this.hunger = gameState.hunger ?? 50;
+            this.happiness = gameState.happiness ?? 75;
+            this.energy = gameState.energy ?? 80;
+            this.health = gameState.health ?? 90;
+            this.petEmoji = gameState.petEmoji ?? "🐱";
+            this.lastUpdate = gameState.lastUpdate ?? Date.now();
+
+            this.updateStatsOverTime();
         }
     }
 
-    // Update stats based on time passed
-    updateStats() {
+    updateStatsOverTime() {
         const now = Date.now();
-        const timePassed = (now - this.lastUpdate) / 1000 / 60; // minutes
-        
-        // Stats degrade over time
-        this.hunger = Math.min(100, this.hunger + timePassed * 0.5);
-        this.happiness = Math.max(0, this.happiness - timePassed * 0.2);
-        this.energy = Math.max(0, this.energy - timePassed * 0.1);
-        
-        // Health is affected by hunger and happiness
+        const minutesPassed = (now - this.lastUpdate) / 1000 / 60;
+
+        this.hunger += minutesPassed * 0.5;
+        this.happiness -= minutesPassed * 0.2;
+        this.energy -= minutesPassed * 0.15;
+
         if (this.hunger > 80 || this.happiness < 20) {
-            this.health = Math.max(0, this.health - timePassed * 0.3);
+            this.health -= minutesPassed * 0.25;
         } else {
-            this.health = Math.min(100, this.health + timePassed * 0.1);
+            this.health += minutesPassed * 0.05;
         }
-        
-        // Increase age
-        this.age += Math.floor(timePassed / 60); // hours
+
         this.lastUpdate = now;
-        
-        // Clamp all values
         this.clampStats();
     }
 
@@ -78,229 +67,224 @@ class Pet {
         this.health = Math.max(0, Math.min(100, this.health));
     }
 
-    // Pet actions
     feed() {
-        if (this.hunger > 10) {
-            this.hunger = Math.max(0, this.hunger - 20);
-            this.happiness = Math.min(100, this.happiness + 5);
-            return 'Nom nom! 😋';
+        if (this.hunger <= 10) {
+            return "Your pet isn't hungry right now.";
         }
-        return 'Not hungry right now!';
+
+        this.hunger -= 20;
+        this.happiness += 5;
+        this.health += 2;
+        this.clampStats();
+        return "Nom nom! 😋";
     }
 
     play() {
-        if (this.energy > 20) {
-            this.energy = Math.max(0, this.energy - 25);
-            this.happiness = Math.min(100, this.happiness + 20);
-            this.hunger = Math.min(100, this.hunger + 10);
-            return 'Wheee! 🎉';
+        if (this.energy < 20) {
+            return "Too tired to play... 😴";
         }
-        return 'Too tired to play...';
+
+        this.happiness += 20;
+        this.energy -= 25;
+        this.hunger += 10;
+        this.clampStats();
+        return "Wheee! 🎉";
     }
 
     sleep() {
-        this.energy = Math.min(100, this.energy + 40);
-        this.happiness = Math.min(100, this.happiness + 5);
-        this.hunger = Math.min(100, this.hunger + 15);
-        return 'Zzzzz... 😴';
+        this.energy += 35;
+        this.hunger += 10;
+        this.clampStats();
+        return "Zzzzz... 😴";
     }
 
     pet() {
-        this.happiness = Math.min(100, this.happiness + 15);
-        return 'Pet loves you! ❤️';
+        this.happiness += 12;
+        this.clampStats();
+        return "Your pet feels loved! ❤️";
     }
 
     clean() {
-        this.health = Math.min(100, this.health + 20);
-        this.happiness = Math.min(100, this.happiness + 10);
-        return 'All sparkly clean! ✨';
+        this.health += 15;
+        this.happiness += 5;
+        this.clampStats();
+        return "All clean and fresh! ✨";
     }
 
     treat() {
-        this.hunger = Math.max(0, this.hunger - 15);
-        this.happiness = Math.min(100, this.happiness + 25);
-        return 'Yum yum! 🍫';
+        this.hunger -= 10;
+        this.happiness += 15;
+        this.health -= 3;
+        this.clampStats();
+        return "Yum! A tasty treat! 🍫";
     }
 
-    // Get mood based on stats
     getMood() {
-        if (this.health < 20) return 'Sick 🤒';
-        if (this.hunger > 80) return 'Starving 😫';
-        if (this.energy < 20) return 'Exhausted 😩';
-        if (this.happiness < 30) return 'Sad 😢';
-        if (this.happiness > 80 && this.hunger < 40) return 'Ecstatic 🥰';
-        if (this.happiness > 60) return 'Happy 😊';
-        return 'Content 😌';
+        if (this.health < 20) return "Sick 🤒";
+        if (this.hunger > 80) return "Starving 😫";
+        if (this.energy < 20) return "Exhausted 😩";
+        if (this.happiness < 30) return "Sad 😢";
+        if (this.happiness > 80 && this.hunger < 40) return "Ecstatic 🥰";
+        if (this.happiness > 60) return "Happy 😊";
+        return "Content 😌";
     }
 }
 
-// Game UI Controller
 class GameUI {
     constructor(pet) {
         this.pet = pet;
         this.initElements();
         this.attachEventListeners();
         this.update();
-        
-        // Update stats every second
-        setInterval(() => this.updateLoop(), 1000);
+
+        setInterval(() => {
+            this.pet.updateStatsOverTime();
+            this.pet.saveGame();
+            this.update();
+        }, 5000);
     }
 
     initElements() {
         this.elements = {
-            petName: document.getElementById('petName'),
-            petAge: document.getElementById('petAge'),
-            petEmoji: document.getElementById('petEmoji'),
-            petMood: document.getElementById('petMood'),
-            hunger: document.getElementById('hungerValue'),
-            hungerBar: document.getElementById('hungerBar'),
-            happiness: document.getElementById('happinessValue'),
-            happinessBar: document.getElementById('happinessBar'),
-            energy: document.getElementById('energyValue'),
-            energyBar: document.getElementById('energyBar'),
-            health: document.getElementById('healthValue'),
-            healthBar: document.getElementById('healthBar'),
-            feedBtn: document.getElementById('feedBtn'),
-            playBtn: document.getElementById('playBtn'),
-            sleepBtn: document.getElementById('sleepBtn'),
-            petBtn: document.getElementById('petBtn'),
-            cleanBtn: document.getElementById('cleanBtn'),
-            treatBtn: document.getElementById('treatBtn'),
-            nameInput: document.getElementById('nameInput'),
-            nameBtn: document.getElementById('nameBtn'),
-            petSelect: document.getElementById('petSelect'),
-            petTypeBtn: document.getElementById('petTypeBtn'),
-            resetBtn: document.getElementById('resetBtn'),
-            logoutBtn: document.getElementById('logoutBtn')
+            petName: document.getElementById("petName"),
+            petEmoji: document.getElementById("petEmoji"),
+            petMood: document.getElementById("petMood"),
+
+            hungerValue: document.getElementById("hungerValue"),
+            happinessValue: document.getElementById("happinessValue"),
+            energyValue: document.getElementById("energyValue"),
+            healthValue: document.getElementById("healthValue"),
+
+            hungerBar: document.getElementById("hungerBar"),
+            happinessBar: document.getElementById("happinessBar"),
+            energyBar: document.getElementById("energyBar"),
+            healthBar: document.getElementById("healthBar"),
+
+            feedBtn: document.getElementById("feedBtn"),
+            playBtn: document.getElementById("playBtn"),
+            sleepBtn: document.getElementById("sleepBtn"),
+            petBtn: document.getElementById("petBtn"),
+            cleanBtn: document.getElementById("cleanBtn"),
+            treatBtn: document.getElementById("treatBtn"),
+            resetBtn: document.getElementById("resetBtn")
         };
     }
 
     attachEventListeners() {
-        this.elements.feedBtn.addEventListener('click', () => this.action('feed'));
-        this.elements.playBtn.addEventListener('click', () => this.action('play'));
-        this.elements.sleepBtn.addEventListener('click', () => this.action('sleep'));
-        this.elements.petBtn.addEventListener('click', () => this.action('pet'));
-        this.elements.cleanBtn.addEventListener('click', () => this.action('clean'));
-        this.elements.treatBtn.addEventListener('click', () => this.action('treat'));
-        
-        this.elements.nameBtn.addEventListener('click', () => this.setName());
-        this.elements.petTypeBtn.addEventListener('click', () => this.changePetType());
-        this.elements.resetBtn.addEventListener('click', () => this.resetGame());
-        this.elements.logoutBtn.addEventListener('click', (e) => this.logout(e));
-        
-        this.elements.nameInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.setName();
+        this.elements.feedBtn?.addEventListener("click", () => this.handleAction("feed"));
+        this.elements.playBtn?.addEventListener("click", () => this.handleAction("play"));
+        this.elements.sleepBtn?.addEventListener("click", () => this.handleAction("sleep"));
+        this.elements.petBtn?.addEventListener("click", () => this.handleAction("pet"));
+        this.elements.cleanBtn?.addEventListener("click", () => this.handleAction("clean"));
+        this.elements.treatBtn?.addEventListener("click", () => this.handleAction("treat"));
+
+        this.elements.resetBtn?.addEventListener("click", (e) => {
+            e.preventDefault();
+            this.resetGame();
+        });
+        this.elements.logoutBtn?.addEventListener("click", (e) => {
+            e.preventDefault();
+            this.logout();
         });
     }
 
-    action(actionName) {
+    handleAction(actionName) {
         const message = this.pet[actionName]();
+        this.pet.saveGame();
+        this.update();
         this.showMessage(message);
-        this.pet.clampStats();
-        this.pet.saveGame();
-        this.update();
-    }
-
-    setName() {
-        const newName = this.elements.nameInput.value.trim();
-        if (newName) {
-            this.pet.name = newName;
-            this.elements.nameInput.value = '';
-            this.pet.saveGame();
-            this.update();
-        }
-    }
-
-    changePetType() {
-        this.pet.petEmoji = this.elements.petSelect.value;
-        this.pet.saveGame();
-        this.update();
     }
 
     resetGame() {
-        if (confirm('Are you sure you want to reset the game? This cannot be undone.')) {
-            localStorage.removeItem('petGameState');
-            location.reload();
-        }
+        const confirmed = confirm("Are you sure you want to reset the game?");
+        if (!confirmed) return;
+
+        localStorage.removeItem("petGameState");
+        this.pet = new Pet();
+        this.update();
+        this.showMessage("Game reset! 🔄");
     }
 
-    logout(e) {
-        e.preventDefault();
-        if (confirm('Are you sure you want to logout? Your game progress will be saved.')) {
-            localStorage.removeItem('isLoggedIn');
-            window.location.href = 'login.html';
-        }
+    logout() {
+        const confirmLogout = confirm("Are you sure you want to log out?");
+        if (!confirmLogout) return;
+
+        // Clear login state
+        localStorage.removeItem("isLoggedIn");
+
+        // Redirect to login page
+        window.location.href = "login.html";
     }
 
     showMessage(message) {
-        // Create temporary message element
-        const msg = document.createElement('div');
-        msg.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #00695c;
-            color: white;
-            padding: 20px 40px;
-            border-radius: 10px;
-            font-size: 18px;
-            z-index: 1000;
-            animation: fadeInOut 1s ease-in-out;
-        `;
+        const msg = document.createElement("div");
         msg.textContent = message;
+        msg.style.position = "fixed";
+        msg.style.top = "30px";
+        msg.style.right = "30px";
+        msg.style.padding = "14px 20px";
+        msg.style.background = "#00695c";
+        msg.style.color = "white";
+        msg.style.borderRadius = "10px";
+        msg.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
+        msg.style.zIndex = "9999";
+        msg.style.fontWeight = "bold";
+
         document.body.appendChild(msg);
-        
-        setTimeout(() => msg.remove(), 1000);
+
+        setTimeout(() => {
+            msg.remove();
+        }, 1500);
     }
 
     update() {
-        // Update UI elements
-        this.elements.petName.textContent = this.pet.name;
-        this.elements.petAge.textContent = `Age: ${this.pet.age} hours`;
-        this.elements.petEmoji.textContent = this.pet.petEmoji;
-        this.elements.petMood.textContent = this.pet.getMood();
-        
-        // Update stat bars
-        this.elements.hunger.textContent = Math.round(this.pet.hunger);
-        this.elements.hungerBar.style.width = this.pet.hunger + '%';
-        
-        this.elements.happiness.textContent = Math.round(this.pet.happiness);
-        this.elements.happinessBar.style.width = this.pet.happiness + '%';
-        
-        this.elements.energy.textContent = Math.round(this.pet.energy);
-        this.elements.energyBar.style.width = this.pet.energy + '%';
-        
-        this.elements.health.textContent = Math.round(this.pet.health);
-        this.elements.healthBar.style.width = this.pet.health + '%';
-    }
+        if (this.elements.petName) {
+            this.elements.petName.textContent = this.pet.name;
+        }
 
-    updateLoop() {
-        this.pet.updateStats();
-        this.pet.saveGame();
-        this.update();
+        if (this.elements.petEmoji) {
+            this.elements.petEmoji.textContent = this.pet.petEmoji;
+        }
+
+        if (this.elements.petMood) {
+            this.elements.petMood.textContent = this.pet.getMood();
+        }
+
+        if (this.elements.hungerValue) {
+            this.elements.hungerValue.textContent = Math.round(this.pet.hunger);
+        }
+
+        if (this.elements.happinessValue) {
+            this.elements.happinessValue.textContent = Math.round(this.pet.happiness);
+        }
+
+        if (this.elements.energyValue) {
+            this.elements.energyValue.textContent = Math.round(this.pet.energy);
+        }
+
+        if (this.elements.healthValue) {
+            this.elements.healthValue.textContent = Math.round(this.pet.health);
+        }
+
+        if (this.elements.hungerBar) {
+            this.elements.hungerBar.style.width = `${this.pet.hunger}%`;
+        }
+
+        if (this.elements.happinessBar) {
+            this.elements.happinessBar.style.width = `${this.pet.happiness}%`;
+        }
+
+        if (this.elements.energyBar) {
+            this.elements.energyBar.style.width = `${this.pet.energy}%`;
+        }
+
+        if (this.elements.healthBar) {
+            this.elements.healthBar.style.width = `${this.pet.health}%`;
+        }
     }
 }
 
-// Add CSS for animations
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes fadeInOut {
-        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-        50% { opacity: 1; }
-        100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-    }
-`;
-document.head.appendChild(style);
-
-// Initialize game when page loads
-document.addEventListener('DOMContentLoaded', () => {
-    // Check if user is logged in
-    if (!localStorage.getItem('isLoggedIn')) {
-        window.location.href = 'login.html';
-        return;
-    }
-    
+document.addEventListener("DOMContentLoaded", () => {
     const pet = new Pet();
-    const ui = new GameUI(pet);
+    new GameUI(pet);
 });
