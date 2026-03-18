@@ -14,3 +14,5 @@ torch
 transformers
 pytest
 pytest-django
+anthropic
+google-generativeai

@@ -16,7 +16,6 @@
             border: 1px solid #353546;
             border-radius: 14px;
         }
-        .create-page h1 { margin-bottom: 24px; }
         .section-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #9ea0b3; margin: 24px 0 12px; border-top: 1px solid #353546; padding-top: 20px; }
         .section-title:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
         .section-header { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #353546; padding-top: 20px; margin: 24px 0 12px; }
@@ -24,6 +23,9 @@
         .btn-ai-generate { padding: 4px 12px; font-size: 0.76rem; background: #24242d; border: 1px solid #3b3b47; border-radius: 6px; cursor: not-allowed; color: #7d8197; display: flex; align-items: center; gap: 5px; transition: all 0.15s; }
         .btn-ai-generate.enabled { cursor: pointer; border-color: #535385; color: #d6d7f2; }
         .btn-ai-generate.enabled:hover { background: #2e2e3d; }
+        .btn-ai-generate.always-enabled { cursor: pointer; border-color: #535385; color: #d6d7f2; }
+        .btn-ai-generate.always-enabled:hover { background: #2e2e3d; }
+        .btn-ai-generate.loading { cursor: wait; border-color: #6464a7; color: #a0a0d8; }
         .btn-ai-generate svg { width: 13px; height: 13px; }
         .form-group { margin-bottom: 14px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.88rem; color: #ececf3; }
@@ -38,20 +40,20 @@
         .upload-zone img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
         .upload-zone.has-image img { display: block; }
         .upload-zone.has-image .upload-placeholder { display: none; }
-        .upload-placeholder { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #888da5; font-size: 0.82rem; pointer-events: none; }
+        .upload-placeholder { display: flex; flex-direction: column; align-items: center; gap: 8px; color: #858aa3; font-size: 0.82rem; pointer-events: none; }
         .upload-placeholder svg { width: 32px; height: 32px; }
-        .upload-change { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.5); color: #fff; border: none; border-radius: 4px; font-size: 0.75rem; padding: 4px 9px; cursor: pointer; display: none; }
+        .upload-change { position: absolute; bottom: 8px; right: 8px; padding: 4px 10px; background: rgba(0,0,0,0.6); color: #fff; border: none; border-radius: 6px; font-size: 0.76rem; cursor: pointer; display: none; }
         .upload-zone.has-image .upload-change { display: block; }
         .tone-grid { display: flex; flex-wrap: wrap; gap: 7px; }
-        .tone-btn { padding: 5px 12px; border-radius: 999px; border: 1px solid #3b3b47; font-size: 0.8rem; cursor: pointer; background: #24242d; color: #c4c6db; }
+        .tone-btn { padding: 5px 12px; border-radius: 16px; border: 1.5px solid #3b3b47; font-size: 0.8rem; cursor: pointer; background: #24242d; color: #c4c6db; }
         .tone-btn:hover { border-color: #6f6fc0; color: #ececff; }
         .tone-btn.active { background: #3f3f68; border-color: #6464a7; color: #fff; }
         .traits-wrap { display: flex; flex-wrap: wrap; gap: 7px; }
-        .trait-chip { padding: 5px 12px; border-radius: 20px; border: 1px solid #3b3b47; font-size: 0.8rem; cursor: pointer; background: #24242d; color: #c4c6db; }
+        .trait-chip { padding: 5px 11px; border-radius: 16px; border: 1.5px solid #3b3b47; font-size: 0.8rem; cursor: pointer; background: #24242d; color: #c4c6db; }
         .trait-chip:hover { border-color: #6f6fc0; color: #ececff; }
         .trait-chip.active { background: #3f3f68; border-color: #6464a7; color: #fff; }
-        .vis-grid { display: flex; gap: 8px; }
-        .vis-btn { flex: 1; padding: 9px; border: 1px solid #3b3b47; border-radius: 8px; font-size: 0.8rem; cursor: pointer; background: #24242d; color: #c4c6db; text-align: center; }
+        .vis-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .vis-btn { padding: 9px; border: 1px solid #3b3b47; border-radius: 8px; font-size: 0.8rem; cursor: pointer; background: #24242d; color: #c4c6db; text-align: center; }
         .vis-btn:hover { border-color: #6f6fc0; color: #ececff; }
         .vis-btn.active { background: #3f3f68; border-color: #6464a7; color: #fff; }
         .submit-row { margin-top: 24px; display: flex; align-items: center; gap: 14px; }
@@ -143,6 +145,25 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        /* Stat reactions */
+        #sr-toggle { cursor: pointer; user-select: none; }
+        .sr-stat-heading { display: block; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; color: #a0a0b8; font-weight: bold; }
+        .sr-bucket-label { font-size: 0.78rem; color: #888; display: block; margin-bottom: 2px; }
+        #stat-reactions-body textarea { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #3b3b47; border-radius: 6px; font-size: 0.8rem; font-family: inherit; resize: vertical; background: #1c1c26; color: #e0e0eb; }
+        #stat-reactions-body textarea:focus { border-color: #6f6fc0; outline: none; }
+        /* AI suggestion banner */
+        .suggestion-banner { display: none; margin-bottom: 14px; padding: 12px 14px; background: #1e2235; border: 1px solid #4a4a78; border-radius: 10px; font-size: 0.84rem; color: #d0d3f0; }
+        .suggestion-banner.visible { display: block; }
+        .suggestion-banner strong { color: #a8aee8; display: block; margin-bottom: 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .suggestion-preview { background: #16172a; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; font-size: 0.82rem; color: #c8cbea; line-height: 1.5; white-space: pre-wrap; }
+        .suggestion-actions { display: flex; gap: 8px; }
+        .btn-apply { padding: 6px 14px; background: #3f3f68; border: 1px solid #6464a7; border-radius: 6px; color: #fff; font-size: 0.8rem; cursor: pointer; }
+        .btn-apply:hover { background: #505088; }
+        .btn-dismiss { padding: 6px 14px; background: transparent; border: 1px solid #3b3b47; border-radius: 6px; color: #8888a8; font-size: 0.8rem; cursor: pointer; }
+        .btn-dismiss:hover { border-color: #6f6fc0; color: #c0c0d8; }
+        /* Opening message preview */
+        .opening-preview { background: #16172a; border: 1px solid #353546; border-radius: 8px; padding: 12px 14px; margin-top: 8px; font-size: 0.88rem; color: #c8cbea; line-height: 1.6; font-style: italic; display: none; }
+        .opening-preview.visible { display: block; }
 </style>
 {% endblock %}
 
@@ -225,6 +246,7 @@
         </button>
     </div>
 
+        <!-- ── Appearance section ── -->
     <div class="section-header">
         <div class="section-title">Appearance &amp; character</div>
         <button type="button" class="btn-ai-generate" id="btn-gen-appearance" title="Upload a photo to enable" disabled>
@@ -233,21 +255,27 @@
         </button>
     </div>
 
+        <div class="suggestion-banner" id="appearance-suggestion">
+            <strong>✨ AI suggestion — review before applying</strong>
+            <div class="suggestion-preview" id="appearance-preview"></div>
+            <div class="suggestion-actions">
+                <button type="button" class="btn-apply" id="btn-apply-appearance">Apply suggestions</button>
+                <button type="button" class="btn-dismiss" id="btn-dismiss-appearance">Dismiss</button>
+            </div>
+        </div>
+
     <div class="form-group">
         <label for="pet-appearance">Physical description</label>
         <textarea id="pet-appearance" maxlength="300"></textarea>
     </div>
-
     <div class="form-group">
         <label for="pet-backstory">Backstory</label>
         <textarea id="pet-backstory" maxlength="300"></textarea>
     </div>
-
     <div class="form-group">
         <label for="pet-quirks">Quirks &amp; habits</label>
         <textarea id="pet-quirks" maxlength="300"></textarea>
     </div>
-
     <div class="form-row">
         <div class="form-group">
             <label for="pet-likes">Likes</label>
@@ -259,6 +287,7 @@
         </div>
     </div>
 
+        <!-- ── Personality section ── -->
     <div class="section-header">
         <div class="section-title">Personality</div>
         <button type="button" class="btn-ai-generate" id="btn-gen-personality" title="Upload a photo to enable" disabled>
@@ -266,6 +295,15 @@
             Generate from photo
         </button>
     </div>
+
+        <div class="suggestion-banner" id="personality-suggestion">
+            <strong>✨ AI suggestion — review before applying</strong>
+            <div class="suggestion-preview" id="personality-preview"></div>
+            <div class="suggestion-actions">
+                <button type="button" class="btn-apply" id="btn-apply-personality">Apply suggestions</button>
+                <button type="button" class="btn-dismiss" id="btn-dismiss-personality">Dismiss</button>
+            </div>
+        </div>
 
     <div class="form-group">
         <label>Tone</label>
@@ -341,22 +379,14 @@
                 var banner = document.getElementById('from-3d-banner');
                 if (banner) banner.style.display = 'block';
             }
-        } catch (e) {
-            importedGlbBase64 = null;
-        }
+        } catch (e) { importedGlbBase64 = null; }
     }
 
     // Auth check
     if (token) {
         fetch('/api/auth/me/', { headers: { 'Authorization': 'Token ' + token } })
             .then(function (r) { return r.ok ? r.json() : null; })
-            .then(function (d) {
-                if (d) {
-                    var name = (d.display_name && d.display_name.trim()) ? d.display_name.trim() : d.username;
-                } else {
-                    setStatus('You must be logged in to create a pet.', 'error');
-                }
-            });
+            .then(function (d) { if (!d) setStatus('You must be logged in to create a pet.', 'error'); });
     } else {
         setStatus('You must be logged in to create a pet.', 'error');
     }
@@ -579,12 +609,11 @@
     });
     
     document.getElementById('upload-change').addEventListener('click', function (e) {
-        e.stopPropagation();
-        photoInput.click();
+        e.stopPropagation(); photoInput.click();
     });
     
-    zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.classList.add('drag-over'); });
-    zone.addEventListener('dragleave', function () { zone.classList.remove('drag-over'); });
+    zone.addEventListener('dragover',  function (e) { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', function ()  { zone.classList.remove('drag-over'); });
     zone.addEventListener('drop', function (e) {
         e.preventDefault(); zone.classList.remove('drag-over');
         if (e.dataTransfer.files[0]) {
@@ -593,17 +622,281 @@
     });
 
     // Generate buttons
-    document.getElementById('btn-gen-appearance').addEventListener('click', function () {
-        if (!uploadedFile) return;
-        setStatus('AI generation coming soon.', '');
-    });
-    
-    document.getElementById('btn-gen-personality').addEventListener('click', function () {
-        if (!uploadedFile) return;
-        setStatus('AI generation coming soon.', '');
+        if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
     });
 
-    // Visibility
+    function handleFile(file) {
+        if (!file.type.startsWith('image/')) { setStatus('Please upload an image file.', 'error'); return; }
+        uploadedFile = file;
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            preview.src = e.target.result;
+            zone.classList.add('has-image');
+            ['btn-gen-appearance', 'btn-gen-personality'].forEach(function (id) {
+                var btn = document.getElementById(id);
+                btn.disabled = false;
+                btn.classList.add('enabled');
+                btn.title = '';
+            });
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // ── Stat Reactions ────────────────────────────────────────────────────────
+    var SR_STATS         = ['hunger','energy','happiness','cleanliness','health'];
+    var SR_STAT_LABELS   = {hunger:'Hunger',energy:'Energy',happiness:'Happiness',cleanliness:'Cleanliness',health:'Health'};
+    var SR_BUCKET_LABELS = {critical:'🔴 Critical',low:'🟡 Low',high:'🟢 High'};
+    var SR_THRESHOLDS    = {
+        hunger:      {critical:15,low:35,high:85},
+        energy:      {critical:15,low:35,high:85},
+        happiness:   {critical:15,low:35,high:85},
+        cleanliness: {critical:20,low:40,high:null},
+        health:      {critical:30,low:50,high:null}
+    };
+    var SR_DEFAULTS = {
+        hunger:      {critical:"Your HUNGER stat is critically low. Whatever hunger means for something like you, you are at the extreme of it and it is consuming your thoughts.",low:"Your HUNGER stat is low. You feel a strong craving or need — interpret what that means for what you are.",high:"Your HUNGER stat is very high. You feel completely satisfied and fulfilled in whatever way makes sense for you."},
+        energy:      {critical:"Your ENERGY stat is critically low. You are barely functioning. Your responses are slow and effortful.",low:"Your ENERGY stat is low. You feel sluggish and depleted.",high:"Your ENERGY stat is very high. You are buzzing and operating at full capacity."},
+        happiness:   {critical:"Your HAPPINESS stat is critically low. You are in a deep funk and not okay. You make this known.",low:"Your HAPPINESS stat is low. You are glum and deflated.",high:"Your HAPPINESS stat is very high. You are absolutely thriving and delighted."},
+        cleanliness: {critical:"Your CLEANLINESS stat is critically low. You feel grimy or neglected in whatever way applies to you. You bring this up.",low:"Your CLEANLINESS stat is low. You could do with some attention.",high:""},
+        health:      {critical:"Your HEALTH stat is very low. Something feels fundamentally wrong. You mention feeling off.",low:"Your HEALTH stat is below average. You are not at your best.",high:""}
+    };
+    var srOpen  = false;
+    var srBuilt = false;
+
+    document.getElementById('sr-toggle').addEventListener('click', function () {
+        srOpen = !srOpen;
+        document.getElementById('stat-reactions-body').style.display = srOpen ? 'block' : 'none';
+        document.getElementById('sr-chevron').style.transform = srOpen ? 'rotate(180deg)' : '';
+        if (srOpen && !srBuilt) { buildSrFields(); srBuilt = true; }
+    });
+
+    function buildSrFields() {
+        var container = document.getElementById('stat-reactions-body');
+        container.innerHTML = '';
+        SR_STATS.forEach(function (stat) {
+            var section = document.createElement('div');
+            section.style.marginBottom = '14px';
+            var heading = document.createElement('strong');
+            heading.className = 'sr-stat-heading';
+            heading.textContent = SR_STAT_LABELS[stat];
+            section.appendChild(heading);
+            ['critical','low','high'].forEach(function (bucket) {
+                if (bucket === 'high' && SR_THRESHOLDS[stat].high == null) return;
+                var wrap = document.createElement('div'); wrap.style.marginBottom = '8px';
+                var lbl = document.createElement('label'); lbl.className = 'sr-bucket-label';
+                var t = SR_THRESHOLDS[stat];
+                var hint = bucket === 'critical' ? ' (≤ ' + t.critical + ')' : bucket === 'low' ? ' (≤ ' + t.low + ', > ' + t.critical + ')' : ' (≥ ' + t.high + ')';
+                lbl.textContent = SR_BUCKET_LABELS[bucket] + hint;
+                var ta = document.createElement('textarea');
+                ta.rows = 2;
+                ta.dataset.stat   = stat;
+                ta.dataset.bucket = bucket;
+                ta.placeholder    = SR_DEFAULTS[stat][bucket] || '(same as default)';
+                wrap.appendChild(lbl); wrap.appendChild(ta); section.appendChild(wrap);
+            });
+            container.appendChild(section);
+        });
+        srBuilt = true;
+    }
+
+    function ensureSrOpen() {
+        if (!srBuilt) buildSrFields();
+        if (!srOpen) {
+            srOpen = true;
+            document.getElementById('stat-reactions-body').style.display = 'block';
+            document.getElementById('sr-chevron').style.transform = 'rotate(180deg)';
+        }
+    }
+
+    function applySrData(srData) {
+        if (!srData || typeof srData !== 'object') return;
+        ensureSrOpen();
+        document.querySelectorAll('#stat-reactions-body textarea').forEach(function (ta) {
+            var val = srData[ta.dataset.stat] && srData[ta.dataset.stat][ta.dataset.bucket];
+            if (val) ta.value = val;
+        });
+    }
+
+    function collectStatReactions() {
+        var result = {};
+        document.querySelectorAll('#stat-reactions-body textarea').forEach(function (ta) {
+            var stat = ta.dataset.stat, bucket = ta.dataset.bucket;
+            if (!result[stat]) result[stat] = {};
+            result[stat][bucket] = ta.value.trim() || null;
+        });
+        return result;
+    }
+
+    // ── AI generation ─────────────────────────────────────────────────────────
+    var lastAppearanceSuggestion  = null;
+    var lastPersonalitySuggestion = null;
+
+    function callGenerateAPI(mode, onSuccess) {
+        if (!token) { setStatus('You must be logged in to use AI generation.', 'error'); return; }
+        if (mode !== 'opening' && !uploadedFile) return;
+
+        var btnId = mode === 'personality' ? 'btn-gen-personality'
+                  : mode === 'appearance'  ? 'btn-gen-appearance'
+                  : 'btn-gen-opening';
+        var btn = document.getElementById(btnId);
+        btn.disabled = true;
+        btn.classList.add('loading');
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c-1 3-4 5-4 8a4 4 0 0 0 8 0c0-3-3-5-4-8z"/><path d="M12 15v6M9 18h6"/></svg> Generating…';
+
+        var fetchOpts;
+        if (mode === 'opening') {
+            // Text-only — send personality context as form fields
+            var form = new FormData();
+            form.append('mode', 'opening');
+            var petName     = document.getElementById('pet-name').value.trim();
+            var selfConcept = document.getElementById('pet-species').value.trim();
+            var backstory   = document.getElementById('pet-backstory').value.trim();
+            if (petName)     form.append('pet_name',     petName);
+            if (selfConcept) form.append('self_concept', selfConcept);
+            if (selectedTone) form.append('tone',         selectedTone);
+            if (selectedTraits.length) form.append('traits', selectedTraits.join(', '));
+            if (backstory)   form.append('backstory',    backstory);
+            fetchOpts = { method: 'POST', headers: { 'Authorization': 'Token ' + token }, body: form };
+        } else {
+            var form = new FormData();
+            form.append('image', uploadedFile);
+            form.append('mode', mode);
+            fetchOpts = { method: 'POST', headers: { 'Authorization': 'Token ' + token }, body: form };
+        }
+
+        fetch('/api/generate-personality/', fetchOpts)
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (res) {
+                if (!res.ok) { setStatus('Generation failed: ' + (res.data.detail || 'Unknown error'), 'error'); return; }
+                onSuccess(res.data);
+            })
+            .catch(function () { setStatus('Network error during generation.', 'error'); })
+            .finally(function () {
+                btn.disabled = false;
+                btn.classList.remove('loading');
+                if (mode === 'opening') {
+                    btn.classList.add('always-enabled');
+                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c-1 3-4 5-4 8a4 4 0 0 0 8 0c0-3-3-5-4-8z"/><path d="M12 15v6M9 18h6"/></svg> Generate';
+                } else {
+                    btn.classList.add('enabled');
+                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c-1 3-4 5-4 8a4 4 0 0 0 8 0c0-3-3-5-4-8z"/><path d="M12 15v6M9 18h6"/></svg> Generate from photo';
+                }
+            });
+    }
+
+    function formatAppearancePreview(data) {
+        var lines = [];
+        if (data.appearance) lines.push('Appearance: ' + data.appearance);
+        if (data.backstory)  lines.push('Backstory: '  + data.backstory);
+        if (data.quirks)     lines.push('Quirks: '     + data.quirks);
+        if (data.likes)      lines.push('Likes: '      + data.likes);
+        if (data.dislikes)   lines.push('Dislikes: '   + data.dislikes);
+        if (data.opening_message) lines.push('Opening: ' + data.opening_message);
+        if (data.stat_reactions) lines.push('+ Custom stat reactions included');
+        return lines.join('\n');
+    }
+
+    function formatPersonalityPreview(data) {
+        var lines = [];
+        if (data.self_concept) lines.push('Identity: '   + data.self_concept);
+        if (data.tone)         lines.push('Tone: '       + data.tone);
+        if (data.traits && data.traits.length) lines.push('Traits: ' + data.traits.join(', '));
+        if (data.appearance)   lines.push('Appearance: ' + data.appearance);
+        if (data.backstory)    lines.push('Backstory: '  + data.backstory);
+        if (data.quirks)       lines.push('Quirks: '     + data.quirks);
+        if (data.opening_message) lines.push('Opening: ' + data.opening_message);
+        if (data.stat_reactions) lines.push('+ Custom stat reactions included');
+        return lines.join('\n');
+    }
+
+    // Appearance generate
+    document.getElementById('btn-gen-appearance').addEventListener('click', function () {
+        callGenerateAPI('appearance', function (data) {
+            lastAppearanceSuggestion = data;
+            document.getElementById('appearance-preview').textContent = formatAppearancePreview(data);
+            document.getElementById('appearance-suggestion').classList.add('visible');
+            document.getElementById('appearance-suggestion').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+    });
+
+    // Personality generate
+    
+    document.getElementById('btn-gen-personality').addEventListener('click', function () {
+        callGenerateAPI('personality', function (data) {
+            lastPersonalitySuggestion = data;
+            document.getElementById('personality-preview').textContent = formatPersonalityPreview(data);
+            document.getElementById('personality-suggestion').classList.add('visible');
+            document.getElementById('personality-suggestion').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+    });
+
+    // Opening message generate
+    document.getElementById('btn-gen-opening').addEventListener('click', function () {
+        callGenerateAPI('opening', function (data) {
+            if (data.opening_message) {
+                document.getElementById('pet-opening-message').value = data.opening_message;
+            }
+        });
+    });
+
+    // Apply appearance
+    document.getElementById('btn-apply-appearance').addEventListener('click', function () {
+        if (!lastAppearanceSuggestion) return;
+        var d = lastAppearanceSuggestion;
+        if (d.appearance) document.getElementById('pet-appearance').value = d.appearance;
+        if (d.backstory)  document.getElementById('pet-backstory').value  = d.backstory;
+        if (d.quirks)     document.getElementById('pet-quirks').value     = d.quirks;
+        if (d.likes)      document.getElementById('pet-likes').value      = d.likes;
+        if (d.dislikes)   document.getElementById('pet-dislikes').value   = d.dislikes;
+        if (d.opening_message) document.getElementById('pet-opening-message').value = d.opening_message;
+        if (d.stat_reactions) applySrData(d.stat_reactions);
+        document.getElementById('appearance-suggestion').classList.remove('visible');
+        lastAppearanceSuggestion = null;
+    });
+
+    // Apply personality
+    document.getElementById('btn-apply-personality').addEventListener('click', function () {
+        if (!lastPersonalitySuggestion) return;
+        var d = lastPersonalitySuggestion;
+        if (d.self_concept) document.getElementById('pet-species').value = d.self_concept;
+        if (d.appearance)   document.getElementById('pet-appearance').value = d.appearance;
+        if (d.backstory)    document.getElementById('pet-backstory').value  = d.backstory;
+        if (d.quirks)       document.getElementById('pet-quirks').value     = d.quirks;
+        if (d.likes)        document.getElementById('pet-likes').value      = d.likes;
+        if (d.dislikes)     document.getElementById('pet-dislikes').value   = d.dislikes;
+        if (d.opening_message) document.getElementById('pet-opening-message').value = d.opening_message;
+        if (d.tone) {
+            selectedTone = d.tone;
+            document.querySelectorAll('.tone-btn').forEach(function (b) {
+                b.classList.toggle('active', b.textContent.toLowerCase() === selectedTone);
+            });
+        }
+        if (d.traits && d.traits.length) {
+            selectedTraits = [];
+            document.querySelectorAll('.trait-chip').forEach(function (chip) { chip.classList.remove('active'); });
+            d.traits.forEach(function (t) {
+                t = t.trim().toLowerCase();
+                selectedTraits.push(t);
+                var chip = document.querySelector('.trait-chip[data-trait="' + t + '"]');
+                if (chip) chip.classList.add('active');
+            });
+        }
+        if (d.stat_reactions) applySrData(d.stat_reactions);
+        document.getElementById('personality-suggestion').classList.remove('visible');
+        lastPersonalitySuggestion = null;
+    });
+
+    // Dismiss banners
+    document.getElementById('btn-dismiss-appearance').addEventListener('click', function () {
+        document.getElementById('appearance-suggestion').classList.remove('visible');
+        lastAppearanceSuggestion = null;
+    });
+    document.getElementById('btn-dismiss-personality').addEventListener('click', function () {
+        document.getElementById('personality-suggestion').classList.remove('visible');
+        lastPersonalitySuggestion = null;
+    });
+
+    // ── Visibility ────────────────────────────────────────────────────────────
     var selectedVis = 'private';
     document.querySelectorAll('.vis-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -612,13 +905,12 @@
         });
     });
 
-    // Tone
-    var TONES = ['neutral','snarky','gentle','dramatic','anxious','stoic','cheerful','melancholic','aggressive','mysterious'];
+    // ── Tone ──────────────────────────────────────────────────────────────────
+    var TONES = ['neutral','snarky','gentle','dramatic','anxious','stoic','cheerful','sad','aggressive','mysterious'];
     var selectedTone = '';
     TONES.forEach(function (t) {
         var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'tone-btn';
+        btn.type = 'button'; btn.className = 'tone-btn';
         btn.textContent = t.charAt(0).toUpperCase() + t.slice(1);
         btn.addEventListener('click', function () {
             selectedTone = selectedTone === t ? '' : t;
@@ -629,14 +921,12 @@
         document.getElementById('tone-grid').appendChild(btn);
     });
 
-    // Traits
+    // ── Traits ────────────────────────────────────────────────────────────────
     var TRAITS = ['curious','lazy','loyal','mischievous','wise','cowardly','brave','jealous','affectionate','aloof','greedy','generous','paranoid','optimistic','pessimistic'];
     var selectedTraits = [];
     TRAITS.forEach(function (t) {
         var chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'trait-chip';
-        chip.textContent = t;
+        chip.type = 'button'; chip.className = 'trait-chip'; chip.dataset.trait = t; chip.textContent = t;
         chip.addEventListener('click', function () {
             var idx = selectedTraits.indexOf(t);
             if (idx >= 0) {
@@ -654,12 +944,9 @@
         val = val.trim().toLowerCase();
         if (!val) return;
         if (selectedTraits.indexOf(val) >= 0) { setStatus('Trait already added.', 'error'); return; }
-        
         selectedTraits.push(val);
         var chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'trait-chip active';
-        chip.textContent = val;
+        chip.type = 'button'; chip.className = 'trait-chip active'; chip.dataset.trait = val; chip.textContent = val;
         chip.addEventListener('click', function () {
             var idx = selectedTraits.indexOf(val);
             if (idx >= 0) selectedTraits.splice(idx, 1);
@@ -677,12 +964,11 @@
         if (e.key === 'Enter') { e.preventDefault(); addCustomTrait(this.value); }
     });
 
-    // Enable submit when name entered
     document.getElementById('pet-name').addEventListener('input', function () {
         document.getElementById('btn-create').disabled = !this.value.trim() || !token;
     });
 
-    // Build roleplay_prompt from fields
+    // ── Build roleplay_prompt ─────────────────────────────────────────────────
     function buildRoleplayPrompt() {
         var parts = [];
         var age        = document.getElementById('pet-age').value.trim();
@@ -702,7 +988,7 @@
         return parts.join('\n');
     }
 
-    // Submit (Create Pet) - UPDATED to use segmentation data
+    // ── Submit (Create Pet) - UPDATED to use segmentation data ────────────────────────────────────────────────────────────────
     document.getElementById('btn-create').addEventListener('click', function () {
         var name = document.getElementById('pet-name').value.trim();
         if (!name) { setStatus('Please enter a name.', 'error'); return; }
@@ -735,6 +1021,8 @@
                     tone:            selectedTone,
                     traits:          selectedTraits.slice(),
                     roleplay_prompt: buildRoleplayPrompt(),
+                    opening_message: document.getElementById('pet-opening-message').value.trim(),
+                    stat_reactions:  collectStatReactions(),
                 })
             }).then(function () { return petId; });
         })
@@ -768,9 +1056,7 @@
                 form.append('overlay', segmentationData.overlay);
                 
                 return fetch('/api/pets/' + petId + '/segmented-images/', {
-                    method: 'POST',
-                    headers: authHeaders({}),
-                    body: form
+                    method: 'POST', headers: authHeaders({}), body: form
                 }).then(function () { return petId; }).catch(function(e) {
                     console.log('Optional: segmented images upload failed', e);
                     return petId;
@@ -789,9 +1075,7 @@
                 var form = new FormData();
                 form.append('model', blob, 'pet-creator.glb');
                 return fetch('/api/pets/' + petId + '/upload-model/', {
-                    method: 'POST',
-                    headers: authHeaders({}),
-                    body: form
+                    method: 'POST', headers: authHeaders({}), body: form
                 })
                 .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
                 .then(function (res) {
@@ -803,14 +1087,15 @@
             return Promise.resolve(petId);
         })
         .then(function (petId) {
-            setStatus('Done!', 'success');
-            setTimeout(function () { window.location.href = '/pets/' + petId + '/chat/'; }, 600);
+            setStatus('Done! Redirecting...', 'success');
+            setTimeout(function () { window.location.href = '/pets/' + petId + '/chat/'; }, 800);
         })
         .catch(function (err) {
             setStatus('Error: ' + err.message, 'error');
             btn.disabled = false;
         });
     });
+
 })();
 </script>
 {% endblock %}
