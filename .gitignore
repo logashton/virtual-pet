@@ -20,8 +20,10 @@ backend/staticfiles/
 virtual-pet/media/uploads/
 virtual-pet/media/uploads/*
 virtual-pet/media/uploads/pets/*
+media/uploads/pets/
 media/uploads/
-
+media/uploads/*
+media/uploads/pets/*
 # Root .env file (keep .env.example for reference)
 .env
 
