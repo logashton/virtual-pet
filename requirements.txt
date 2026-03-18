@@ -12,3 +12,5 @@ shapely
 numpy
 torch
 transformers
+pytest
+pytest-django
