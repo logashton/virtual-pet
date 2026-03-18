@@ -1,0 +1,803 @@
+{% extends "discover_base.html" %}
+
+{% block page_title %}Chat – Pet Project{% endblock %}
+{% block topbar_class %} with-back{% endblock %}
+{% block topbar_leading %}<a class="back-home" href="{% url 'pets' %}" aria-label="Back to pets">←</a>{% endblock %}
+{% block topbar_middle %}<h1 style="margin:0;color:#f5f5f9;">Pet Chat</h1>{% endblock %}
+{% block topbar_trailing %}{% endblock %}
+
+{% block main_prefix %}
+<style>
+        .chat-page { max-width: 900px; margin: 0 auto; padding: 20px; }
+        .back { display: inline-block; margin-bottom: 16px; color: #007bff; text-decoration: none; }
+        .back:hover { text-decoration: underline; }
+        .layout { display: flex; gap: 20px; }
+        .sidebar { width: 220px; flex-shrink: 0; }
+        .chat-panel { flex: 1; }
+        .card { background: white; border: 1px solid #ddd; border-radius: 4px; padding: 16px; margin-bottom: 16px; }
+        .card h3 { margin: 0 0 12px; font-size: 0.95rem; }
+        .pet-portrait-card { text-align: center; padding: 12px 16px 8px; }
+        .pet-portrait-wrap { width: 100%; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #f0f0f0; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; border: 2px dashed #ddd; position: relative; }
+        .pet-portrait-wrap img { width: 100%; height: 100%; object-fit: cover; display: none; border-radius: 6px; }
+        .pet-portrait-wrap img.loaded { display: block; }
+        .pet-3d-canvas { width: 100%; height: 100%; display: none; }
+        .pet-portrait-placeholder { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #bbb; font-size: 0.78rem; }
+        .pet-portrait-placeholder svg { width: 40px; height: 40px; }
+        .pet-name-label { font-weight: bold; font-size: 1.05rem; color: #333; }
+        .stat-row { margin-bottom: 8px; font-size: 0.85rem; }
+        .stat-row label { display: inline-block; width: 80px; color: #555; }
+        .stat-bar-bg { display: inline-block; width: 100px; height: 8px; background: #eee; border-radius: 4px; vertical-align: middle; }
+        .stat-bar-fill { display: block; height: 100%; border-radius: 4px; transition: width 0.4s, background-color 0.4s; }
+        .stat-bar-fill.high   { background: #28a745; }
+        .stat-bar-fill.medium { background: #ffc107; }
+        .stat-bar-fill.low    { background: #dc3545; }
+        .stat-val { margin-left: 6px; color: #333; font-size: 0.8rem; }
+        .stat-decay { font-size: 0.72rem; color: #dc3545; margin-left: 3px; }
+        .decay-notice { background: #fff8e1; border: 1px solid #ffe082; border-radius: 4px; padding: 8px 10px; margin-bottom: 10px; font-size: 0.78rem; color: #795548; }
+        .decay-notice strong { display: block; margin-bottom: 4px; color: #5d4037; }
+        .actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .btn { padding: 8px 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+        .btn:hover { background: #0056b3; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .visitor-note { font-size: 0.8rem; color: #666; }
+        #chat-messages { border: 1px solid #ddd; border-radius: 4px; height: 360px; overflow-y: auto; padding: 12px; margin-bottom: 10px; background: white; display: flex; flex-direction: column; gap: 8px; }
+        .msg { max-width: 75%; padding: 8px 12px; border-radius: 4px; font-size: 0.9rem; line-height: 1.4; }
+        .msg.user { align-self: flex-end; background: #007bff; color: white; }
+        .msg.pet  { align-self: flex-start; background: #f0f0f0; color: #333; }
+        .msg.system { align-self: center; background: #fff3cd; color: #856404; font-size: 0.8rem; font-style: italic; }
+        .chat-input-row { display: flex; gap: 8px; }
+        .chat-input-row input { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
+        .btn-regen { background: none; border: 1px solid #aaa; color: #555; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-top: 4px; align-self: flex-start; }
+        .btn-regen:hover { background: #f0f0f0; }
+        .stat-change { font-size: 0.75rem; color: #28a745; align-self: center; font-style: italic; }
+        .keywords-hint { font-size: 0.78rem; color: #666; margin-top: 8px; }
+        .history-divider { align-self: center; font-size: 0.75rem; color: #aaa; font-style: italic; margin: 4px 0; }
+        .btn-secondary { background: none; border: 1px solid #007bff; color: #007bff; padding: 7px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; width: 100%; margin-top: 8px; }
+        .btn-secondary:hover { background: #e8f0fe; }
+        /* ── Personality ── */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: white; border-radius: 8px; padding: 24px; max-width: 480px; width: 92%; max-height: 88vh; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+        .modal-header { display: flex; align-items: center; justify-content: space-between; }
+        .modal-header h2 { margin: 0; font-size: 1.05rem; }
+        .modal-close { background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #888; line-height: 1; padding: 2px 6px; }
+        .modal-close:hover { color: #333; }
+        .modal-field { display: flex; flex-direction: column; gap: 5px; }
+        .modal-field label { font-size: 0.85rem; font-weight: bold; color: #444; }
+        .modal-field .hint { font-size: 0.78rem; color: #888; margin: 0; }
+        .modal-field input, .modal-field select { padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.88rem; }
+        .modal-field input:focus, .modal-field select:focus { outline: none; border-color: #007bff; }
+        .traits-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+        .trait-chip { padding: 5px 11px; border-radius: 16px; border: 1.5px solid #ccc; font-size: 0.8rem; cursor: pointer; background: white; color: #555; user-select: none; transition: all 0.12s; }
+        .trait-chip:hover { border-color: #007bff; color: #007bff; }
+        .traits-grid.readonly .trait-chip { cursor: default; pointer-events: none; opacity: 0.75; }
+        .modal-footer { display: flex; align-items: center; gap: 10px; padding-top: 4px; border-top: 1px solid #eee; }
+        .modal-footer .btn { padding: 8px 18px; }
+        .modal-save-status { font-size: 0.8rem; color: #28a745; }
+        .modal-save-status.error { color: #dc3545; }
+        .sidebar-trait { font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; background: #e8f0fe; color: #1a56db; border: 1px solid #c3d4f7; }
+        
+        /* theme overrides */
+        .chat-page { max-width: 1120px; margin: 0 auto; padding: 8px 0 20px; }
+        .card { background: #1f1f27; border: 1px solid #353546; border-radius: 12px; }
+        .pet-portrait-wrap { background: #24242d; border-color: #4a4b5c; }
+        .pet-portrait-placeholder { color: #858aa3; }
+        .pet-name-label { color: #f2f2f8; }
+        .stat-row { color: #d2d4e6; }
+        .stat-row label { color: #adb0c6; }
+        .stat-bar-bg { background: #2f313d; }
+        .stat-val { color: #d2d4e6; }
+        .decay-notice { background: #2e2a1f; border-color: #5d4c28; color: #e2ca84; border-radius: 8px; }
+        .decay-notice strong { color: #f0db9f; }
+        .btn { background: #535385; border: 1px solid #6b6ba8; border-radius: 8px; }
+        .btn:hover { background: #62629a; }
+        .visitor-note { color: #969bb2; }
+        #chat-messages { border: 1px solid #353546; border-radius: 12px; height: 420px; background: #1f1f27; }
+        .msg.pet { background: #2a2a35; color: #e8e8f1; }
+        .msg.system { background: #2e2a1f; color: #e2ca84; }
+        .chat-input-row input { border: 1px solid #3b3b47; border-radius: 8px; background: #24242d; color: #f3f3f9; padding: 10px 11px; }
+        .btn-regen { background: #24242d; border: 1px solid #3b3b47; color: #c9cbe0; border-radius: 6px; }
+        .btn-regen:hover { background: #2f3040; }
+        .keywords-hint { color: #9499b2; }
+        .btn-secondary { background: #24242d; border: 1px solid #5f5f98; color: #cfd1ed; border-radius: 8px; }
+        .btn-secondary:hover { background: #2e2e3d; }
+        .modal { background: #1f1f27; border: 1px solid #353546; color: #f0f0f6; border-radius: 12px; }
+        .modal-close { color: #aeb2ca; }
+        .modal-close:hover { color: #fff; }
+        .modal-field label { color: #ececf3; }
+        .modal-field .hint { color: #8f92a8; }
+        .modal-field input, .modal-field select, .modal-field textarea { background: #24242d; color: #f3f3f9; border: 1px solid #3b3b47; border-radius: 8px; }
+        .modal-field input:focus, .modal-field select:focus, .modal-field textarea:focus { border-color: #6f6fc0; outline: none; }
+        .trait-chip { border-color: #3b3b47; background: #24242d; color: #c4c6db; }
+        .trait-chip:hover { border-color: #6f6fc0; color: #ececff; }
+        .trait-chip.active { background: #3f3f68; border-color: #6464a7; color: #fff; }
+        .modal-footer { border-top: 1px solid #353546; }
+        .sidebar-trait { background: #323245; color: #d7d7e4; border: 1px solid #4f4f68; }
+</style>
+{% endblock %}
+
+{% block main_content %}
+<div class="chat-page">
+        <h1 id="page-title">Chat</h1>
+
+        <div class="layout">
+            <div class="sidebar">
+                <div class="card pet-portrait-card">
+                    <div class="pet-portrait-wrap" id="portrait-wrap">
+                        <canvas id="pet-3d-canvas" class="pet-3d-canvas"></canvas>
+                        <img id="pet-portrait-img" alt="Pet portrait">
+                        <div class="pet-portrait-placeholder" id="portrait-placeholder">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <circle cx="12" cy="8" r="4"/>
+                                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                            </svg>
+                            No photo yet
+                        </div>
+                    </div>
+                    <div class="pet-name-label" id="portrait-name"></div>
+                    <div id="portrait-traits" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;justify-content:center;"></div>
+                </div>
+                <div class="card">
+                    <h3>Stats</h3>
+                    <div id="stats-area"><p style="font-size:0.85rem;color:#666;">Loading...</p></div>
+                </div>
+                <div class="card">
+                    <h3>Actions</h3>
+                    <div id="actions-owner">
+                        <div class="actions-grid">
+                            <button class="btn" data-action="feed">Feed</button>
+                            <button class="btn" data-action="play">Play</button>
+                            <button class="btn" data-action="clean">Clean</button>
+                            <button class="btn" data-action="rest">Rest</button>
+                        </div>
+                    </div>
+                    <div id="actions-visitor" style="display:none;">
+                        <p class="visitor-note">Only the owner can use actions.</p>
+                    </div>
+                    <button class="btn-secondary" id="btn-edit-personality" style="display:none;">View Personality</button>
+                </div>
+            </div>
+
+            <div class="chat-panel">
+                <div id="chat-messages"></div>
+                <div class="chat-input-row">
+                    <input type="text" id="chat-input" placeholder="Say something...">
+                    <button class="btn" id="send-btn">Send</button>
+                </div>
+                <p class="keywords-hint" id="keywords-hint" style="display:none;">
+                    Tip: saying "feed", "play", "bath", or "rest" in chat also triggers stat changes.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Personality editor  -->
+    <div class="modal-overlay" id="personality-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="p-modal-title">Edit Personality</h2>
+                <button class="modal-close" id="p-modal-close">×</button>
+            </div>
+            <p id="p-readonly-note" style="display:none;font-size:0.8rem;color:#888;background:#f5f5f5;padding:7px 10px;border-radius:4px;margin:0;">Viewing only — only the owner can edit this.</p>
+
+            <div class="modal-field">
+                <label for="p-pet-name">Pet name</label>
+                <input type="text" id="p-pet-name" maxlength="60">
+            </div>
+
+            <div class="modal-field">
+                <label for="p-self-concept">What is this pet?</label>
+                <input type="text" id="p-self-concept" placeholder="e.g. a grumpy ancient sword, a wise houseplant, a dramatic traffic cone">
+                <p class="hint">The core identity the AI commits to. Leave blank to let it guess from the name.</p>
+            </div>
+
+            <div class="modal-field">
+                <label for="p-tone">Tone</label>
+                <select id="p-tone">
+                    <option value="">— no specific tone —</option>
+                </select>
+            </div>
+
+            <div class="modal-field">
+                <label>Traits</label>
+                <div class="traits-grid" id="p-traits-grid"></div>
+                <div style="display:flex;gap:8px;margin-top:10px;">
+                    <input type="text" id="p-custom-trait-input" maxlength="30" placeholder="Add a custom trait..."
+                        style="flex:1;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:0.82rem;font-family:inherit;">
+                    <button type="button" id="p-btn-add-trait"
+                        style="padding:6px 14px;background:#007bff;color:white;border:none;border-radius:4px;font-size:0.82rem;cursor:pointer;">Add</button>
+                </div>
+            </div>
+
+            <div class="modal-field">
+                <label for="p-roleplay-prompt">Character details</label>
+                <textarea id="p-roleplay-prompt" rows="5"
+                    style="padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:0.85rem;font-family:inherit;resize:vertical;"
+                    placeholder="Age, appearance, backstory, quirks, likes, dislikes..."></textarea>
+                <p class="hint">This is passed directly to the AI to shape how your pet speaks and behaves.</p>
+            </div>
+
+            <div class="modal-footer" id="p-modal-footer">
+                <button class="btn" id="p-save-btn">Save</button>
+                <button class="btn" id="p-reset-btn" style="background:#6c757d;">Reset to Default</button>
+                <span class="modal-save-status" id="p-save-status"></span>
+            </div>
+        </div>
+    </div>
+<script>
+(function () {
+    var PET_ID = parseInt(window.location.pathname.split('/').filter(Boolean)[1], 10);
+    window.PET_ID = PET_ID;
+    window.PET_HAS_3D = {{ has_3d|yesno:"true,false" }};
+    window.PET_MODEL_3D_URL = "{{ model_3d_url|escapejs }}";
+    var sessionId = null;
+    var isOwner = false;
+    var isBusy = false;
+
+    var token = localStorage.getItem('authToken');
+    function authHeaders() {
+        var h = { 'Content-Type': 'application/json' };
+        var t = localStorage.getItem('authToken');
+        if (t) h['Authorization'] = 'Token ' + t;
+        return h;
+    }
+
+    // ── Stats 
+
+    var STAT_KEYS   = ['hunger', 'energy', 'happiness', 'cleanliness', 'health'];
+    var STAT_LABELS = { hunger: 'Hunger', energy: 'Energy', happiness: 'Happy', cleanliness: 'Clean', health: 'Health' };
+
+    function statColorClass(val) {
+        if (val >= 60) return 'high';
+        if (val >= 30) return 'medium';
+        return 'low';
+    }
+
+    function renderStats(stats, prevStats) {
+        var area = document.getElementById('stats-area');
+
+        // Decay notice — shown once per session if away > 10 min
+        var noticeHtml = '';
+        if (prevStats) {
+            var lines = [];
+            STAT_KEYS.forEach(function (k) {
+                var diff = stats[k] - prevStats[k];
+                if (diff < 0) lines.push(STAT_LABELS[k] + ' ' + diff);
+            });
+            if (lines.length) {
+                noticeHtml = '<div class="decay-notice">'
+                    + '<strong>Since your last visit:</strong>'
+                    + lines.join(' &nbsp;·&nbsp; ')
+                    + '</div>';
+            }
+        }
+
+        var barsHtml = STAT_KEYS.map(function (k) {
+            var cls = statColorClass(stats[k]);
+            var decayHtml = '';
+            if (prevStats) {
+                var diff = stats[k] - prevStats[k];
+                if (diff < 0) decayHtml = '<span class="stat-decay">(' + diff + ')</span>';
+            }
+            return '<div class="stat-row">'
+                + '<label>' + STAT_LABELS[k] + '</label>'
+                + '<span class="stat-bar-bg"><span class="stat-bar-fill ' + cls + '" id="sb-' + k + '" style="width:' + stats[k] + '%"></span></span>'
+                + '<span class="stat-val" id="sv-' + k + '">' + stats[k] + '</span>'
+                + decayHtml
+                + '</div>';
+        }).join('');
+
+        area.innerHTML = noticeHtml + barsHtml;
+    }
+
+    var STORAGE_KEY = 'pet_stats_snapshot_' + PET_ID;
+    var SESSION_GAP_MS = 10 * 60 * 1000; // 10 minutes = new session
+    var shownDecayThisSession = false;
+
+    function loadStats() {
+        fetch('/api/pets/' + PET_ID + '/stats/', { headers: authHeaders() })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                if (!data) {
+                    document.getElementById('stats-area').innerHTML = '<p style="font-size:0.85rem;color:#666;">Unavailable</p>';
+                    return;
+                }
+
+                // Compare against last saved snapshot if this is a fresh session
+                var prevStats = null;
+                if (!shownDecayThisSession) {
+                    try {
+                        var stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+                        if (stored && stored.ts && (Date.now() - stored.ts) > SESSION_GAP_MS) {
+                            prevStats = stored.stats;
+                        }
+                    } catch (e) {}
+                    shownDecayThisSession = true;
+                }
+
+                renderStats(data, prevStats);
+
+                // Save snapshot for next visit
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ts: Date.now(), stats: data }));
+                } catch (e) {}
+            })
+            .catch(function () {});
+    }
+
+    // ── Messages 
+
+    var lastPetMsgEl = null;
+    var regenBtnEl = null;
+
+    function appendMsg(role, text) {
+        var msgs = document.getElementById('chat-messages');
+
+        // Remove old regenerate button before adding new messages
+        if (regenBtnEl && regenBtnEl.parentNode) {
+            regenBtnEl.parentNode.removeChild(regenBtnEl);
+            regenBtnEl = null;
+        }
+
+        var div = document.createElement('div');
+        div.className = 'msg ' + role;
+        div.textContent = text;
+        msgs.appendChild(div);
+
+        if (role === 'pet') {
+            lastPetMsgEl = div;
+            if (isOwner) addRegenButton(msgs);
+        }
+
+        msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function addRegenButton(msgs) {
+        if (regenBtnEl && regenBtnEl.parentNode) {
+            regenBtnEl.parentNode.removeChild(regenBtnEl);
+        }
+        regenBtnEl = document.createElement('button');
+        regenBtnEl.className = 'btn-regen';
+        regenBtnEl.textContent = '↻ Regenerate response';
+        regenBtnEl.addEventListener('click', regenerateLast);
+        msgs.appendChild(regenBtnEl);
+        msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function regenerateLast() {
+        if (isBusy || !lastPetMsgEl) return;
+        isBusy = true;
+        setBusy(true);
+
+        // Remove the regenerate button
+        if (regenBtnEl && regenBtnEl.parentNode) {
+            regenBtnEl.parentNode.removeChild(regenBtnEl);
+            regenBtnEl = null;
+        }
+
+        // Grey out the last pet message while waiting
+        lastPetMsgEl.style.opacity = '0.4';
+
+        fetch('/chat/api/' + PET_ID + '/', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ regenerate: true, session_id: sessionId })
+        })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (res) {
+                if (!res.ok) { appendMsg('system', 'Regenerate failed.'); return; }
+                lastPetMsgEl.textContent = res.data.reply;
+                lastPetMsgEl.style.opacity = '1';
+                if (res.data.stat_changes && Object.keys(res.data.stat_changes).length) appendStatChange(res.data.stat_changes);
+                if (isOwner) loadStats();
+                var msgs = document.getElementById('chat-messages');
+                addRegenButton(msgs);
+                msgs.scrollTop = msgs.scrollHeight;
+            })
+            .catch(function () {
+                if (lastPetMsgEl) lastPetMsgEl.style.opacity = '1';
+                appendMsg('system', 'Network error.');
+            })
+            .finally(function () { isBusy = false; setBusy(false); });
+    }
+
+    function appendDivider(text) {
+        var msgs = document.getElementById('chat-messages');
+        var div = document.createElement('div');
+        div.className = 'history-divider';
+        div.textContent = text;
+        msgs.appendChild(div);
+    }
+
+    function appendStatChange(changes) {
+        if (!changes || !Object.keys(changes).length) return;
+        var msgs = document.getElementById('chat-messages');
+        var div = document.createElement('div');
+        div.className = 'stat-change';
+        var parts = Object.entries(changes).map(function (e) {
+            return e[0] + ' ' + (e[1] > 0 ? '+' : '') + e[1];
+        });
+        div.textContent = '[ ' + parts.join('  ') + ' ]';
+        msgs.appendChild(div);
+        msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function renderHistory(messages) {
+        if (!messages || !messages.length) return;
+        appendDivider('— previous conversation —');
+        messages.forEach(function (m) {
+            var role = m.sender === 'user' ? 'user' : 'pet';
+            appendMsg(role, m.content);
+        });
+        appendDivider('— now —');
+        var msgs = document.getElementById('chat-messages');
+        msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    // ── Busy  
+
+    function setBusy(busy) {
+        document.getElementById('send-btn').disabled = busy;
+        document.getElementById('chat-input').disabled = busy;
+        document.querySelectorAll('[data-action]').forEach(function (b) { b.disabled = busy; });
+    }
+
+    // ── Send message 
+
+    function sendMessage(text, actionKey) {
+        if (isBusy || !text.trim()) return;
+        isBusy = true;
+        setBusy(true);
+        appendMsg('user', text);
+        document.getElementById('chat-input').value = '';
+
+        var body = { message: text };
+        if (sessionId) body.session_id = sessionId;
+        if (actionKey) body.action = actionKey;
+
+        fetch('/chat/api/' + PET_ID + '/', {
+            method: 'POST', headers: authHeaders(), body: JSON.stringify(body)
+        })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (res) {
+                if (!res.ok) { appendMsg('system', 'Error: ' + (res.data.detail || 'something went wrong')); return; }
+                if (res.data.session_id) sessionId = res.data.session_id;
+                isOwner = res.data.is_owner;
+                if (res.data.stat_changes && Object.keys(res.data.stat_changes).length) appendStatChange(res.data.stat_changes);
+                appendMsg('pet', res.data.reply);
+                if (isOwner) loadStats();
+            })
+            .catch(function () { appendMsg('system', 'Network error. Try again.'); })
+            .finally(function () { isBusy = false; setBusy(false); });
+    }
+
+    // ── Action buttons 
+
+    var ACTION_MESSAGES = {
+        feed: [
+            "You carefully prepare something and offer it to your companion. You're not entirely sure what they eat, but you do your best.",
+            "You find something that seems appropriate and present it. It feels like the right thing to do.",
+            "You spend a while sourcing the best possible nourishment you can find and lay it out in front of your friend.",
+            "You put together a small meal and place it nearby, hoping it hits the spot.",
+        ],
+        play: [
+            "You spend a long time playing with your companion, making up games as you go. Neither of you wants to stop.",
+            "You invent an activity perfectly suited to whatever your friend is, and throw yourself into it completely.",
+            "You clear some space and dedicate the next while entirely to having fun together.",
+            "You engage your companion in an enthusiastic play session, whatever that looks like for something like them.",
+        ],
+        clean: [
+            "You spend a long time carefully scrubbing your companion until they're absolutely gleaming.",
+            "You gather your best cleaning supplies and get to work, making sure every surface is spotless.",
+            "You dedicate a solid chunk of time to thorough grooming, taking real pride in the result.",
+            "You carefully clean every part of your companion, making sure nothing is missed.",
+        ],
+        rest: [
+            "You find a quiet spot and settle your companion in for a long, undisturbed rest.",
+            "You make sure everything is calm and comfortable, then leave your friend to recharge in peace.",
+            "You dim the lights, clear the noise, and give your companion the rest they deserve.",
+            "You tuck your companion in and sit quietly nearby while they rest.",
+        ],
+    };
+
+    function doAction(actionKey) {
+        if (isBusy) return;
+        var messages = ACTION_MESSAGES[actionKey];
+        var message = messages[Math.floor(Math.random() * messages.length)];
+        sendMessage(message, actionKey);
+    }
+
+    // ── Event listener
+
+    document.getElementById('chat-input').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') sendMessage(e.target.value);
+    });
+    document.getElementById('send-btn').addEventListener('click', function () {
+        sendMessage(document.getElementById('chat-input').value);
+    });
+    document.querySelectorAll('[data-action]').forEach(function (btn) {
+        btn.addEventListener('click', function () { doAction(btn.dataset.action); });
+    });
+
+    // ── Personality  
+
+    var pModal         = document.getElementById('personality-modal');
+    var pSelectedTraits = [];
+
+    function addCustomTraitToModal(val) {
+        val = val.trim().toLowerCase();
+        if (!val) return;
+        if (pSelectedTraits.indexOf(val) >= 0) { setPStatus('Trait already added.', true); return; }
+        pSelectedTraits.push(val);
+        var grid = document.getElementById('p-traits-grid');
+        // Check if chip already exists (e.g. preset) and just activate it
+        var existing = grid.querySelector('[data-trait="' + val + '"]');
+        if (existing) {
+            existing.classList.add('active');
+        } else {
+            var chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'trait-chip active';
+            chip.textContent = val;
+            chip.dataset.trait = val;
+            chip.addEventListener('click', function () {
+                if (!isOwner) return;
+                var idx = pSelectedTraits.indexOf(val);
+                if (idx >= 0) { pSelectedTraits.splice(idx, 1); chip.classList.remove('active'); }
+                else { pSelectedTraits.push(val); chip.classList.add('active'); }
+            });
+            grid.appendChild(chip);
+        }
+        document.getElementById('p-custom-trait-input').value = '';
+    }
+
+    document.getElementById('p-btn-add-trait').addEventListener('click', function () {
+        addCustomTraitToModal(document.getElementById('p-custom-trait-input').value);
+    });
+    document.getElementById('p-custom-trait-input').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); addCustomTraitToModal(this.value); }
+    });
+
+    function openPersonalityModal() {
+        document.getElementById('p-readonly-note').style.display = isOwner ? 'none' : 'block';
+        document.getElementById('p-traits-grid').classList.toggle('readonly', !isOwner);
+        // Disable custom trait input for non-owners
+        document.getElementById('p-custom-trait-input').disabled = !isOwner;
+        document.getElementById('p-btn-add-trait').disabled = !isOwner;
+        pModal.classList.add('open');
+        // Pre-fill name from page title
+        document.getElementById('p-pet-name').value = document.getElementById('portrait-name').textContent || '';
+        fetch('/api/pets/' + PET_ID + '/personality/', { headers: authHeaders() })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                if (!data) return;
+                // Build tone options
+                var sel = document.getElementById('p-tone');
+                if (sel.options.length <= 1 && data.valid_tones) {
+                    data.valid_tones.forEach(function (t) {
+                        var opt = document.createElement('option');
+                        opt.value = t;
+                        opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+                        sel.appendChild(opt);
+                    });
+                }
+                // Build traits — preset list + any custom ones saved on this pet
+                var grid = document.getElementById('p-traits-grid');
+                var savedTraits = data.traits || [];
+                var validTraits = data.valid_traits || [];
+                var allTraits = validTraits.slice();
+                savedTraits.forEach(function (t) {
+                    if (allTraits.indexOf(t) < 0) allTraits.push(t);
+                });
+                grid.innerHTML = '';
+                allTraits.forEach(function (t) {
+                    var chip = document.createElement('button');
+                    chip.type = 'button';
+                    chip.className = 'trait-chip';
+                    chip.textContent = t;
+                    chip.dataset.trait = t;
+                    chip.addEventListener('click', function () {
+                        if (!isOwner) return;
+                        var idx = pSelectedTraits.indexOf(t);
+                        if (idx >= 0) { pSelectedTraits.splice(idx, 1); chip.classList.remove('active'); }
+                        else { pSelectedTraits.push(t); chip.classList.add('active'); }
+                    });
+                    grid.appendChild(chip);
+                });
+                // Populate values
+                document.getElementById('p-self-concept').value    = data.self_concept || '';
+                document.getElementById('p-tone').value            = data.tone || '';
+                document.getElementById('p-roleplay-prompt').value = data.roleplay_prompt || '';
+                pSelectedTraits = savedTraits.slice();
+                document.querySelectorAll('#p-traits-grid .trait-chip').forEach(function (chip) {
+                    chip.classList.toggle('active', pSelectedTraits.indexOf(chip.dataset.trait) >= 0);
+                });
+                document.getElementById('p-modal-title').textContent = isOwner ? 'Edit Personality' : 'View Personality';
+                document.querySelectorAll('.modal-field input, .modal-field select, .modal-field textarea').forEach(function (el) {
+                    el.disabled = !isOwner;
+                });
+            })
+            .catch(function () {});
+    }
+
+    function closePersonalityModal() { pModal.classList.remove('open'); }
+
+    function setPStatus(msg, isError) {
+        var el = document.getElementById('p-save-status');
+        el.textContent = msg;
+        el.className = 'modal-save-status' + (isError ? ' error' : '');
+        setTimeout(function () { el.textContent = ''; }, 3000);
+    }
+
+    document.getElementById('btn-edit-personality').addEventListener('click', openPersonalityModal);
+    document.getElementById('p-modal-close').addEventListener('click', closePersonalityModal);
+    pModal.addEventListener('click', function (e) { if (e.target === pModal) closePersonalityModal(); });
+
+    document.getElementById('p-save-btn').addEventListener('click', function () {
+        var btn = this;
+        btn.disabled = true;
+
+        var newName = document.getElementById('p-pet-name').value.trim();
+        var namePromise = newName
+            ? fetch('/api/pets/' + PET_ID + '/', {
+                method: 'PATCH',
+                headers: authHeaders(),
+                body: JSON.stringify({ name: newName })
+              }).then(function (r) {
+                  if (r.ok) {
+                      // Update name in the page header and portrait label
+                      document.getElementById('portrait-name').textContent = newName;
+                      document.getElementById('page-title').textContent = 'Chat with ' + newName;
+                      document.title = 'Chat with ' + newName + ' – Pet Project';
+                  }
+              })
+            : Promise.resolve();
+
+        namePromise.then(function () {
+            return fetch('/api/pets/' + PET_ID + '/personality/', {
+                method: 'PATCH',
+                headers: authHeaders(),
+                body: JSON.stringify({
+                    self_concept:    document.getElementById('p-self-concept').value.trim(),
+                    tone:            document.getElementById('p-tone').value,
+                    traits:          pSelectedTraits.slice(),
+                    roleplay_prompt: document.getElementById('p-roleplay-prompt').value.trim(),
+                })
+            });
+        })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (res) {
+                if (res.ok) setPStatus('Saved!', false);
+                else setPStatus('Error: ' + (res.data.detail || JSON.stringify(res.data)), true);
+            })
+            .catch(function () { setPStatus('Network error.', true); })
+            .finally(function () { btn.disabled = false; });
+    });
+
+    document.getElementById('p-reset-btn').addEventListener('click', function () {
+        if (!confirm('Reset personality to default? All custom settings will be removed.')) return;
+        fetch('/api/pets/' + PET_ID + '/personality/', { method: 'DELETE', headers: authHeaders() })
+            .then(function (r) {
+                if (r.status === 204) {
+                    document.getElementById('p-self-concept').value = '';
+                    document.getElementById('p-tone').value = '';
+                    pSelectedTraits = [];
+                    document.querySelectorAll('.trait-chip').forEach(function (c) { c.classList.remove('active'); });
+                    setPStatus('Reset to default.', false);
+                }
+            })
+            .catch(function () { setPStatus('Network error.', true); });
+    });
+
+    // ── Init 
+
+    function init() {
+        var userData = null;
+
+        // auth check
+        var authPromise = token
+            ? fetch('/api/auth/me/', { headers: { 'Authorization': 'Token ' + token } })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (data) {
+                        var name = (data.display_name && data.display_name.trim()) ? data.display_name.trim() : data.username;
+                        userData = data;
+                    }
+                })
+            : Promise.resolve();
+
+        //  load pet info, then history and stats 
+        authPromise
+            .then(function () {
+                return fetch('/api/pets/' + PET_ID + '/', { headers: authHeaders() });
+            })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (pet) {
+                if (!pet) {
+                    document.getElementById('page-title').textContent = 'Pet not found';
+                    return;
+                }
+
+                document.getElementById('page-title').textContent = 'Chat with ' + pet.name;
+                document.title = 'Chat with ' + pet.name + ' – Pet Project';
+                document.getElementById('portrait-name').textContent = pet.name;
+
+                // Portrait: if we have a linked 3D model, the viewer script will take over this area.
+                if (!window.PET_HAS_3D) {
+                    // try cutout first, then original
+                    var assetUrl = pet.portrait_url
+                        || (pet.assets && pet.assets[0] && (pet.assets[0].cutout_image_url || pet.assets[0].original_image_url))
+                        || null;
+                    if (assetUrl) {
+                        var img = document.getElementById('pet-portrait-img');
+                        img.src = assetUrl;
+                        img.onload = function () {
+                            img.classList.add('loaded');
+                            document.getElementById('portrait-placeholder').style.display = 'none';
+                        };
+                    }
+                } else {
+                    document.getElementById('portrait-placeholder').textContent = 'Loading 3D view...';
+                }
+
+                isOwner = !!(userData && pet.owner && pet.owner.id === userData.id);
+
+                document.getElementById('actions-owner').style.display    = isOwner ? 'block' : 'none';
+                document.getElementById('actions-visitor').style.display   = isOwner ? 'none'  : 'block';
+                document.getElementById('keywords-hint').style.display     = isOwner ? 'block' : 'none';
+                // Show personality button for everyone, owners have edit label
+                var pBtn = document.getElementById('btn-edit-personality');
+                pBtn.style.display = 'block';
+                pBtn.textContent = isOwner ? 'Edit Personality' : 'View Personality';
+                // Show/hide save controls in modal based on ownership
+                document.getElementById('p-modal-footer').style.display = isOwner ? 'flex' : 'none';
+                document.querySelectorAll('.modal-field input, .modal-field select, .trait-chip').forEach(function (el) {
+                    el.disabled = !isOwner;
+                });
+
+                // Load stats and history 
+                loadStats();
+
+                // Load personality — populate sidebar traits and prime modal cache
+                fetch('/api/pets/' + PET_ID + '/personality/', { headers: authHeaders() })
+                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (data) {
+                        if (!data) return;
+                        var traitsList = data.traits || [];
+                        if (traitsList.length) {
+                            var wrap = document.getElementById('portrait-traits');
+                            wrap.innerHTML = traitsList.map(function (t) {
+                                return '<span class="sidebar-trait">' + t + '</span>';
+                            }).join('');
+                        }
+                    })
+                    .catch(function () {});
+
+                // Only load history for authenticated users — history is per-user
+                if (userData) {
+                    fetch('/chat/api/' + PET_ID + '/', { headers: authHeaders() })
+                        .then(function (r) { return r.ok ? r.json() : null; })
+                        .then(function (data) {
+                            if (data && data.session_id) {
+                                sessionId = data.session_id;
+                                renderHistory(data.messages);
+                            }
+                        })
+                        .catch(function () {});
+                }
+            })
+            .catch(function () {
+                document.getElementById('page-title').textContent = 'Error loading pet';
+            });
+    }
+
+    init();
+})();
+</script>
+{% if has_3d %}
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module" src="/static/pet_chat_3d_viewer.js"></script>
+{% endif %}
+{% endblock %}

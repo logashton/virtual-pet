@@ -1,0 +1,90 @@
+{% extends "discover_base.html" %}
+
+{% block page_title %}Moderation - Pet Project{% endblock %}
+{% block topbar_class %} with-back{% endblock %}
+{% block topbar_leading %}<a class="back-home" href="{% url 'home' %}" aria-label="Back to home">←</a>{% endblock %}
+{% block topbar_middle %}<h1 style="margin:0;color:#f5f5f9;">Moderator Queue</h1>{% endblock %}
+{% block topbar_trailing %}{% endblock %}
+
+{% block main_prefix %}
+<style>
+  .mod-wrap { max-width: 980px; margin: 0 auto; }
+  .report-card {
+    background: #1f1f27;
+    border: 1px solid #353546;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .report-card h3 { margin: 0 0 8px; color: #f1f1f6; }
+  .muted { color: #9ea2ba; margin: 0 0 8px; }
+  .report-details { color: #d5d8ea; margin: 0 0 10px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .actions form { margin: 0; }
+  .btn {
+    border-radius: 8px;
+    padding: 7px 12px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    color: #fff;
+    font-size: 0.82rem;
+  }
+  .btn.primary { background: #4d7d5a; border-color: #5f9a6f; }
+  .btn.primary:hover { background: #5c946b; }
+  .btn.secondary { background: #3f3f68; border-color: #6464a7; }
+  .btn.secondary:hover { background: #505088; }
+  .btn.danger { background: #7b3a45; border-color: #a2515f; }
+  .btn.danger:hover { background: #944551; }
+  .empty {
+    background: #1f1f27;
+    border: 1px dashed #3d3d4a;
+    border-radius: 10px;
+    color: #a5a5b1;
+    padding: 14px;
+  }
+</style>
+{% endblock %}
+
+{% block main_content %}
+<section class="mod-wrap">
+  {% if active_reports %}
+    {% for report in active_reports %}
+      <article class="report-card">
+        <h3>#{{ report.id }} · {{ report.reason }}</h3>
+        <p class="muted">Pet: {% if report.pet %}{{ report.pet.name }} (#{{ report.pet.id }}){% else %}N/A{% endif %} · Reporter: {{ report.reporter_user|default:'Anonymous' }}</p>
+        {% if report.details %}<p class="report-details">{{ report.details }}</p>{% endif %}
+        <div class="actions">
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="resolve_report">
+            <input type="hidden" name="report_id" value="{{ report.id }}">
+            <button class="btn primary" type="submit">Resolve</button>
+          </form>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="reject_report">
+            <input type="hidden" name="report_id" value="{{ report.id }}">
+            <button class="btn secondary" type="submit">Reject</button>
+          </form>
+          {% if report.pet %}
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="hide_pet">
+              <input type="hidden" name="pet_id" value="{{ report.pet.id }}">
+              <button class="btn secondary" type="submit">Hide pet</button>
+            </form>
+            <form method="post" onsubmit="return confirm('Delete this pet permanently?');">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="delete_pet">
+              <input type="hidden" name="pet_id" value="{{ report.pet.id }}">
+              <button class="btn danger" type="submit">Delete pet</button>
+            </form>
+          {% endif %}
+        </div>
+      </article>
+    {% endfor %}
+  {% else %}
+    <div class="empty">No open reports.</div>
+  {% endif %}
+</section>
+{% endblock %}

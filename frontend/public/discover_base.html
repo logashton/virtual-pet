@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block page_title %}virtual-pet{% endblock %}</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        :root {
+            --discover-font: "Inter", "Avenir Next", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        body { margin: 0; background: #1b1b1f; color: #efeff1; font-family: var(--discover-font); }
+        .discover-shell {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            background: #1b1b1f;
+            overflow-x: hidden;
+            transition: grid-template-columns 0.35s ease;
+        }
+        .discover-sidebar {
+            border-right: 1px solid #2d2d33;
+            width: 260px;
+            padding: 22px 16px;
+            background: #16161a;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+            transition: transform 0.35s ease, opacity 0.25s ease;
+            transform: translateX(0);
+            opacity: 1;
+            overflow-y: auto;
+        }
+        .discover-shell.sidebar-collapsed { grid-template-columns: 0 1fr; }
+        .discover-shell.sidebar-collapsed .discover-sidebar {
+            transform: translateX(-100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .sidebar-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+            gap: 10px;
+        }
+        .discover-logo {
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+        .discover-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 11px;
+            border-radius: 10px;
+            color: #d3d3d8;
+            text-decoration: none;
+            margin-bottom: 6px;
+            background: transparent;
+            border: 1px solid transparent;
+        }
+        .discover-nav-item:hover { background: #23232a; border-color: #323240; }
+        .discover-nav-item.active { background: #2b2b36; border-color: #43435a; color: #fff; }
+        .nav-icon {
+            width: 18px;
+            height: 18px;
+            color: #9ea0b3;
+            flex-shrink: 0;
+            transition: color 0.2s ease;
+        }
+        .discover-nav-item:hover .nav-icon,
+        .discover-nav-item.active .nav-icon {
+            color: #efeff8;
+        }
+        .sidebar-user {
+            border-top: 1px solid #2f2f38;
+            padding-top: 14px;
+            margin-top: auto;
+            color: #c8c8d2;
+            font-size: 0.88rem;
+            background: #16161a;
+        }
+        .sidebar-user .name { font-weight: 600; margin-bottom: 4px; color: #f1f1f5; }
+        .sidebar-user .meta { color: #8e8e9b; font-size: 0.78rem; margin-bottom: 8px; }
+        .sidebar-user .auth-link { color: #c9c9de; text-decoration: none; }
+        .sidebar-user .auth-link:hover { text-decoration: underline; }
+        .signout-btn {
+            border: 1px solid #3f3f54;
+            background: #29293a;
+            color: #fff;
+            border-radius: 8px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .discover-main { position: relative; padding: 20px 30px 40px; }
+        .discover-topbar {
+            display: grid;
+            grid-template-columns: 1fr minmax(340px, 620px) 1fr;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .discover-topbar.with-back {
+            grid-template-columns: 1fr minmax(280px, 460px) 1fr;
+            gap: 12px;
+        }
+        .discover-topbar h1 {
+            font-size: 1rem;
+            margin: 0;
+            color: #c3c3cf;
+            font-weight: 600;
+        }
+        .discover-topbar form { margin: 0; width: 100%; max-width: 460px; justify-self: center; }
+        .discover-topbar > *:first-child { justify-self: start; }
+        .discover-topbar > *:last-child { justify-self: end; }
+        .sidebar-toggle,
+        .sidebar-reopen,
+        .back-home {
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            border: 1px solid #3b3b47;
+            background: #24242c;
+            color: #efeff1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.86rem;
+            line-height: 1;
+            transition: background 0.2s ease;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .sidebar-toggle:hover,
+        .sidebar-reopen:hover,
+        .back-home:hover { background: #2e2e38; }
+        .sidebar-reopen {
+            display: none;
+            position: absolute;
+            top: 22px;
+            left: 22px;
+            z-index: 3;
+        }
+        .discover-shell.sidebar-collapsed .sidebar-reopen { display: inline-flex; }
+        .discover-search {
+            width: 100%;
+            border-radius: 999px;
+            border: 1px solid #3b3b47;
+            background: #24242c;
+            color: #f2f2f4;
+            padding: 11px 16px;
+            font-size: 0.95rem;
+        }
+        .discover-search::placeholder { color: #8e8e9a; }
+        .discover-create {
+            border-radius: 999px;
+            padding: 10px 16px;
+            border: 1px solid #4a4a6d;
+            background: #3e3e60;
+            color: #fff;
+            text-decoration: none;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        .discover-create:hover { background: #4a4a73; }
+        .pet-report-btn {
+            margin-left: auto;
+            padding: 0;
+            border: none;
+            background: transparent;
+            color: #b8bcd3;
+            cursor: pointer;
+            line-height: 0;
+            transition: color 0.2s ease;
+        }
+        .pet-report-btn:hover { color: #fff; }
+        .pet-report-btn svg { width: 15px; height: 15px; }
+        .report-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 16, 0.62);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1200;
+            padding: 14px;
+        }
+        .report-modal-overlay.open { display: flex; }
+        .report-modal {
+            width: min(460px, 96vw);
+            background: #1f1f27;
+            border: 1px solid #353546;
+            border-radius: 12px;
+            padding: 16px;
+            color: #ececf3;
+        }
+        .report-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .report-modal-header h3 { margin: 0; font-size: 1rem; }
+        .report-close {
+            border: none;
+            background: transparent;
+            color: #aeb2ca;
+            font-size: 1.2rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .report-modal label {
+            display: block;
+            font-size: 0.85rem;
+            color: #cfd1e6;
+            margin: 10px 0 6px;
+        }
+        .report-modal input,
+        .report-modal textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #3b3b47;
+            background: #24242d;
+            color: #f3f3f9;
+            border-radius: 8px;
+            padding: 9px 10px;
+            font-size: 0.86rem;
+            font-family: inherit;
+        }
+        .report-modal textarea {
+            min-height: 90px;
+            resize: vertical;
+        }
+        .report-modal-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .report-submit {
+            border-radius: 8px;
+            padding: 8px 12px;
+            border: 1px solid #6a6aa9;
+            background: #535385;
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.84rem;
+        }
+        .report-submit:hover { background: #62629a; }
+        .report-cancel {
+            border-radius: 8px;
+            padding: 8px 12px;
+            border: 1px solid #4a4a60;
+            background: #24242d;
+            color: #d8dbef;
+            cursor: pointer;
+            font-size: 0.84rem;
+        }
+        .report-status {
+            font-size: 0.8rem;
+            color: #a9adbf;
+            margin-left: auto;
+        }
+        .report-status.error { color: #e36c7a; }
+        .report-status.success { color: #75c78b; }
+    </style>
+</head>
+<body>
+{% with current_url=request.resolver_match.url_name %}
+<div class="discover-shell">
+    <aside class="discover-sidebar">
+        <div>
+            <div class="sidebar-top">
+                <div class="discover-logo">virtual-pet</div>
+                <button class="sidebar-toggle" type="button" id="sidebarToggle" aria-label="Collapse sidebar" aria-expanded="true">❮</button>
+            </div>
+            <a class="discover-nav-item{% if current_url == 'home' %} active{% endif %}" href="{% url 'home' %}">
+                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12m12.524-3.753a1 1 0 0 1 1.228 1.228l-1.12 4.105a1.5 1.5 0 0 1-1.052 1.052l-4.105 1.12a1 1 0 0 1-1.228-1.228l1.12-4.105a1.5 1.5 0 0 1 1.052-1.052z" fill="currentColor" fill-rule="evenodd"></path>
+                </svg>
+                For You
+            </a>
+            <a class="discover-nav-item{% if current_url == 'pets' or current_url == 'pet_chat' %} active{% endif %}" href="{% url 'pets' %}">
+                <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Zm10 0a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5ZM5.5 15.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Zm13 0a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5ZM12 20c-3.4 0-5.7-1.4-5.7-3.2 0-1.6 1.6-2.8 3.5-2.8.9 0 1.7.2 2.2.7.5-.5 1.3-.7 2.2-.7 1.9 0 3.5 1.2 3.5 2.8C17.7 18.6 15.4 20 12 20Z" fill="currentColor"></path>
+                </svg>
+                Me
+            </a>
+            {% if request.user.is_authenticated %}
+                <a class="discover-nav-item{% if current_url == 'pet_create' %} active{% endif %}" href="{% url 'pet_create' %}">
+                    <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 5a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H6a1 1 0 0 1 0-2h5V6a1 1 0 0 1 1-1Z" fill="currentColor"></path>
+                    </svg>
+                    Create a Pet
+                </a>
+                <a class="discover-nav-item{% if current_url == 'pet_creator_3d' %} active{% endif %}" href="{% url 'pet_creator_3d' %}">
+                    <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="currentColor"></path>
+                    </svg>
+                    3D Creator
+                </a>
+            {% endif %}
+            {% if request.user.is_authenticated and request.user.is_staff %}
+                <a class="discover-nav-item{% if current_url == 'mod' %} active{% endif %}" href="{% url 'mod' %}">
+                    <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 3.5 5 6v5.4c0 4.1 2.5 7.8 7 9.1 4.5-1.3 7-5 7-9.1V6l-7-2.5Zm0 2.1 4.8 1.7v4.1c0 3.1-1.8 5.9-4.8 7.1-3-1.2-4.8-4-4.8-7.1V7.3L12 5.6Zm-1 3.2h2v4h-2v-4Zm0 5.6h2v2h-2v-2Z" fill="currentColor"></path>
+                    </svg>
+                    Moderation
+                </a>
+            {% endif %}
+            {% if request.user.is_authenticated and request.user.is_superuser %}
+                <a class="discover-nav-item{% if current_url == 'manage' %} active{% endif %}" href="{% url 'manage' %}">
+                    <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m19.4 13.5.1-1.5-.1-1.5 1.7-1.3a.8.8 0 0 0 .2-1l-1.6-2.8a.8.8 0 0 0-1-.3l-2 .8a7 7 0 0 0-2.5-1.5l-.3-2.1a.8.8 0 0 0-.8-.7h-3.2a.8.8 0 0 0-.8.7l-.3 2.1a7 7 0 0 0-2.5 1.5l-2-.8a.8.8 0 0 0-1 .3L2.8 8.2a.8.8 0 0 0 .2 1l1.7 1.3-.1 1.5.1 1.5-1.7 1.3a.8.8 0 0 0-.2 1l1.6 2.8a.8.8 0 0 0 1 .3l2-.8c.7.6 1.6 1.1 2.5 1.5l.3 2.1c.1.4.4.7.8.7h3.2c.4 0 .7-.3.8-.7l.3-2.1a7 7 0 0 0 2.5-1.5l2 .8a.8.8 0 0 0 1-.3l1.6-2.8a.8.8 0 0 0-.2-1l-1.7-1.3ZM12 15.6A3.6 3.6 0 1 1 12 8a3.6 3.6 0 0 1 0 7.2Z" fill="currentColor"></path>
+                    </svg>
+                    Admin
+                </a>
+            {% endif %}
+        </div>
+
+        <div class="sidebar-user">
+            {% if request.user.is_authenticated %}
+                <div class="name">{{ request.user.display_name|default:request.user.username }}</div>
+                <div class="meta">{{ request.user.email }}</div>
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button class="signout-btn" type="submit">Sign out</button>
+                </form>
+            {% else %}
+                <div class="name">Guest</div>
+                <div class="meta">Log in to create and chat with pets.</div>
+                <a class="auth-link" href="{% url 'auth' %}">Login / Register</a>
+            {% endif %}
+        </div>
+    </aside>
+
+    <section class="discover-main">
+        <button class="sidebar-reopen" type="button" id="sidebarReopen" aria-label="Expand sidebar" aria-expanded="false">❯</button>
+        {% block main_prefix %}{% endblock %}
+        <div class="discover-topbar{% block topbar_class %}{% endblock %}">
+            {% block topbar_leading %}
+                <h1>Discover Pets</h1>
+            {% endblock %}
+            {% block topbar_middle %}
+                <form method="get" action="{% url 'pets_search' %}">
+                    <input
+                        class="discover-search"
+                        name="q"
+                        value="{% block search_value %}{% endblock %}"
+                        placeholder="Search pets, traits, or stories."
+                        aria-label="Search pets"
+                    >
+                </form>
+            {% endblock %}
+            {% block topbar_trailing %}
+                {% if request.user.is_authenticated %}
+                    <a class="discover-create" href="{% url 'pet_create' %}">+ Create Pet</a>
+                {% endif %}
+            {% endblock %}
+        </div>
+        {% block main_content %}{% endblock %}
+    </section>
+</div>
+<div class="report-modal-overlay" id="reportModal">
+    <div class="report-modal" role="dialog" aria-modal="true" aria-labelledby="reportModalTitle">
+        <div class="report-modal-header">
+            <h3 id="reportModalTitle">Report Pet</h3>
+            <button class="report-close" type="button" id="reportClose" aria-label="Close report modal">×</button>
+        </div>
+        <p style="margin:0 0 8px;color:#a9adbf;font-size:0.82rem;">Report <span id="reportPetName">this pet</span></p>
+        <label for="reportReason">Reason</label>
+        <input id="reportReason" type="text" maxlength="100" placeholder="e.g. harmful behavior, spam, inappropriate content">
+        <label for="reportDetails">Details (optional)</label>
+        <textarea id="reportDetails" maxlength="1000" placeholder="Add more context here..."></textarea>
+        <div class="report-modal-actions">
+            <button class="report-submit" type="button" id="reportSubmit">Submit report</button>
+            <button class="report-cancel" type="button" id="reportCancel">Cancel</button>
+            <span class="report-status" id="reportStatus"></span>
+        </div>
+    </div>
+</div>
+{% endwith %}
+<script>
+    (function () {
+        var token = "{{ auth_token|escapejs }}";
+        if (token) {
+            localStorage.setItem("authToken", token);
+        } else {
+            localStorage.removeItem("authToken");
+        }
+    })();
+
+    (function () {
+        const shell = document.querySelector(".discover-shell");
+        const toggle = document.getElementById("sidebarToggle");
+        const reopen = document.getElementById("sidebarReopen");
+        if (!shell || !toggle || !reopen) return;
+
+        const storageKey = "discoverSidebarCollapsed";
+        const applyState = (collapsed) => {
+            shell.classList.toggle("sidebar-collapsed", collapsed);
+            toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+            toggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+            toggle.textContent = collapsed ? "❯" : "❮";
+            reopen.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        };
+
+        const saved = window.localStorage.getItem(storageKey) === "1";
+        applyState(saved);
+
+        const onToggle = () => {
+            const collapsed = !shell.classList.contains("sidebar-collapsed");
+            applyState(collapsed);
+            window.localStorage.setItem(storageKey, collapsed ? "1" : "0");
+        };
+
+        toggle.addEventListener("click", onToggle);
+        reopen.addEventListener("click", onToggle);
+    })();
+
+    (function () {
+        const modal = document.getElementById("reportModal");
+        const closeBtn = document.getElementById("reportClose");
+        const cancelBtn = document.getElementById("reportCancel");
+        const submitBtn = document.getElementById("reportSubmit");
+        const petNameEl = document.getElementById("reportPetName");
+        const reasonEl = document.getElementById("reportReason");
+        const detailsEl = document.getElementById("reportDetails");
+        const statusEl = document.getElementById("reportStatus");
+        const triggers = document.querySelectorAll(".report-trigger");
+        if (!modal || !closeBtn || !cancelBtn || !submitBtn || !reasonEl || !detailsEl || !statusEl || !petNameEl || !triggers.length) return;
+
+        let currentPetId = null;
+
+        const setStatus = (msg, type) => {
+            statusEl.textContent = msg || "";
+            statusEl.className = "report-status" + (type ? " " + type : "");
+        };
+
+        const closeModal = () => {
+            modal.classList.remove("open");
+            currentPetId = null;
+            reasonEl.value = "";
+            detailsEl.value = "";
+            setStatus("");
+        };
+
+        const openModal = (petId, petName) => {
+            currentPetId = petId;
+            petNameEl.textContent = petName || "this pet";
+            modal.classList.add("open");
+            reasonEl.focus();
+        };
+
+        triggers.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                openModal(btn.getAttribute("data-pet-id"), btn.getAttribute("data-pet-name"));
+            });
+        });
+
+        closeBtn.addEventListener("click", closeModal);
+        cancelBtn.addEventListener("click", closeModal);
+        modal.addEventListener("click", (event) => {
+            if (event.target === modal) closeModal();
+        });
+
+        submitBtn.addEventListener("click", async () => {
+            const reason = reasonEl.value.trim();
+            const details = detailsEl.value.trim();
+            if (!currentPetId) {
+                setStatus("Missing pet id.", "error");
+                return;
+            }
+            if (!reason) {
+                setStatus("Reason is required.", "error");
+                return;
+            }
+
+            const token = window.localStorage.getItem("authToken");
+            if (!token) {
+                setStatus("Please log in to report.", "error");
+                return;
+            }
+
+            submitBtn.disabled = true;
+            setStatus("Submitting...");
+            try {
+                const response = await fetch("/api/moderation-reports/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Token " + token,
+                    },
+                    body: JSON.stringify({
+                        pet_id: Number(currentPetId),
+                        reason: reason,
+                        details: details || null,
+                    }),
+                });
+
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    const message =
+                        data.detail ||
+                        (Array.isArray(data.non_field_errors) && data.non_field_errors[0]) ||
+                        data.reason?.[0] ||
+                        data.pet_id?.[0] ||
+                        "Could not submit report.";
+                    setStatus(message, "error");
+                    return;
+                }
+
+                setStatus("Report submitted.", "success");
+                setTimeout(closeModal, 650);
+            } catch (err) {
+                setStatus("Network error while submitting.", "error");
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    })();
+</script>
+</body>
+</html>

@@ -1,12 +1,17 @@
+# backend/chat/services/chatbot_service.py
+
 
 # CHATBOT SERVICE
-# Handles the actual chatbot communications
+# Handles the actual chatbot talking stuff
+
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from pathlib import Path
 import logging
 import traceback
+import json
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +23,12 @@ class PetChatbotService:
         self.model_path = Path(model_path) if model_path else None
         
         print("Starting chatbot...")
-        
         self.load_model()
     
     def load_model(self):
-        # Loads the model and handles any mismatch of covab
+        # Loads the model and handles any mismatch of vocabulary
         try:
-            # Always loads the tokenizer from base model first (in case of incompatabilities)
+            # Always loads the tokenizer from base model first
             print()
             print("1. Loading tokenizer from base model...")
             self.tokenizer = AutoTokenizer.from_pretrained(
@@ -32,7 +36,7 @@ class PetChatbotService:
                 use_fast=False
             )
             
-            # Adds a padding token if needed
+            # Adds a padding token if it's needed
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
                 print("   Added pad_token")
@@ -54,7 +58,7 @@ class PetChatbotService:
                 print()
                 print(f"3. Looking for adapter_config.json in: {self.model_path}")
                 
-                # Finds the checkpoint folder (checkpoint-3) or lora_weights
+                # Finds the checkpoint folder or lora_weights
                 possible_config_paths = [
                     self.model_path / 'adapter_config.json',
                     self.model_path / 'checkpoint-3' / 'adapter_config.json',
@@ -78,7 +82,7 @@ class PetChatbotService:
                         
                         from peft import PeftModel
                         
-                        # Loads the LoRA weights. Automatically handles any inconsistent vocab
+                        # Loads the LoRA weights
                         self.model = PeftModel.from_pretrained(
                             base_model,
                             lora_folder,
@@ -96,7 +100,6 @@ class PetChatbotService:
                         print(f"WARNING! Could not load LoRA weights: {e}")
                         print("Attempting manual weight loading...")
                         
-                        # This only loads compatible weights
                         try:
                             from safetensors.torch import load_file
                             import json
@@ -157,47 +160,85 @@ class PetChatbotService:
             if self.model_path and self.model_path.exists():
                 print(f"   Loaded from: {self.model_path}")
             
-        except Exception as e: # In case of failure
+        except Exception as e:
             print(f"Failed to load model: {e}")
             traceback.print_exc()
             self.model = None
             self.tokenizer = None
     
-    def generate_response(self, user_message, pet_state=None):
-        # Handles the actual response generation
+    def generate_response(self, user_message, pet_state=None, system_prompt=None):
+        
+        # Generates a response from the pet
+        
+        # Args:
+        #     user_message: The user's message
+        #     pet_state: Dictionary with pet stats (hunger, happiness, etc.)
+        #     system_prompt: Full system prompt with personality and formatting instructions
+        
+        # Returns:
+        #     The pet's response as a string
+
         if self.model is None or self.tokenizer is None:
             return self._get_fallback_response()
         
         try:
-            # Simple prompt. Should be updated later
-            if pet_state:
-                prompt = f"You are a {pet_state.get('species', 'pet')} named {pet_state.get('name', 'Pet')}. {user_message}"
+            # Uses the full system prompt if provided (from views.py)
+            if system_prompt:
+                # Builds the full prompt with conversation history
+                prompt = f"{system_prompt}\n\nUser: {user_message}\nPet:"
             else:
-                prompt = f"You are a friendly pet. {user_message}"
+                # Simple fallback prompt
+                if pet_state:
+                    prompt = f"You are a {pet_state.get('species', 'pet')} named {pet_state.get('name', 'Pet')}. Current stats: hunger={pet_state.get('hunger', 50)}, happiness={pet_state.get('happiness', 50)}, energy={pet_state.get('energy', 50)}.\n\nUser: {user_message}\nPet:"
+                else:
+                    prompt = f"You are a friendly pet.\n\nUser: {user_message}\nPet:"
             
-            # Tokenize process
-            inputs = self.tokenizer.encode(prompt, return_tensors='pt').to(self.device)
+            print(f"Prompt length: {len(prompt)} characters")
             
-            # Generate process
+            # Tokenizer
+            inputs = self.tokenizer.encode(prompt, return_tensors='pt', truncation=True, max_length=512).to(self.device)
+            
+            # Generater
             with torch.no_grad():
                 outputs = self.model.generate(
                     inputs,
-                    max_new_tokens=50,
+                    max_new_tokens=150,
                     temperature=0.8,
+                    top_p=0.9,
                     do_sample=True,
-                    pad_token_id=self.tokenizer.pad_token_id
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                    repetition_penalty=1.1
                 )
             
-            # Decoding process
-            response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            # Decoder
+            full_response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             
-            # Removes the prompt from the response
-            response = response[len(prompt):].strip()
+            # Extracts only the new part (after "Pet:")
+            response = full_response[len(prompt):].strip()
+            
+            # Cleans up the response (sometimes the model adds extra formatting)
+            if "User:" in response:
+                response = response.split("User:")[0].strip()
+            if "Pet:" in response:
+                response = response.split("Pet:")[1].strip() if "Pet:" in response else response
+            
+            # Tries to parse as JSON if it looks like JSON (from your system prompt)
+            if response.strip().startswith('{') and response.strip().endswith('}'):
+                try:
+                    data = json.loads(response)
+                    if 'reply' in data:
+                        response = data['reply']
+                except:
+                    pass
+            
+            print(f"Generated response: {response[:100]}...")
             
             return response if response else self._get_fallback_response()
             
         except Exception as e:
             print(f"Error generating response: {e}")
+            traceback.print_exc()
             return self._get_fallback_response()
     
     def _get_fallback_response(self):
@@ -207,9 +248,12 @@ class PetChatbotService:
             "*purrs softly*",
             "*makes a happy sound*",
             "*nuzzles against you*",
-            "*looks at you with big eyes*"
+            "*looks at you with big eyes*",
+            "*tilts head curiously*",
+            "*gives you a gentle nudge*"
         ]
         return random.choice(responses)
+
 
 # Singleton instance
 _chatbot_service = None
@@ -219,13 +263,13 @@ def get_chatbot_service(model_path=None):
     if _chatbot_service is None:
         # If there's no model path provided, tries to find it in standard locations
         if model_path is None:
-            base_dir = Path(__file__).parent.parent
-            pet_chatbot_dir = base_dir / 'ai_models' / 'pet_chatbot'
+            base_dir = Path(__file__).parent.parent.parent  # Go up to backend root
+            pet_chatbot_dir = base_dir / 'chat' / 'ai_models' / 'pet_chatbot'
             
             print(f"Looking for models in: {pet_chatbot_dir}")
             
             if pet_chatbot_dir.exists():
-                # Finds all subdirectories that look like timestamps (e.g., 20260223_175055)
+                # Finds all subdirectories that look like timestamps
                 model_folders = []
                 for item in pet_chatbot_dir.iterdir():
                     if item.is_dir():
@@ -237,7 +281,7 @@ def get_chatbot_service(model_path=None):
                             model_folders.append(item)
                 
                 if model_folders:
-                    # Sorts by name (which would be the timestamp) and gets the most recent version
+                    # Sorts by name and gets the most recent
                     model_folders.sort(reverse=True)
                     latest_model = model_folders[0]
                     
@@ -246,7 +290,7 @@ def get_chatbot_service(model_path=None):
                         marker = "✓" if folder == latest_model else " "
                         print(f"  {marker} {folder.name}")
                     
-                    # Checks if lora_weights folder exists inside the latest model folder
+                    # Checks if lora_weights folder exists inside
                     lora_path = latest_model / 'lora_weights'
                     if lora_path.exists():
                         model_path = str(lora_path)
@@ -256,7 +300,7 @@ def get_chatbot_service(model_path=None):
                         print(f"\nUsing model from: {latest_model}")
                 else:
                     print("No timestamp folders found, checking for direct lora_weights...")
-                    # Checks for lora_weights directly in pet_chatbot dir
+                    # Checks for lora_weights directly
                     lora_direct = pet_chatbot_dir / 'lora_weights'
                     if lora_direct.exists():
                         model_path = str(lora_direct)

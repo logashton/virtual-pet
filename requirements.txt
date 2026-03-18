@@ -5,3 +5,12 @@ python-dotenv
 requests
 openai
 pillow
+rembg[cpu]
+trimesh
+scikit-image
+shapely
+numpy
+torch
+transformers
+pytest
+pytest-django

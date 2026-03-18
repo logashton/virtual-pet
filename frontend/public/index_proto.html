@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pet Project</title>
+
+    <!-- Link to external CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<header>
+    <h1>🐾 Pet Project</h1>
+    <nav>
+        <a href="#" id="resetBtn">Reset Game</a>
+    </nav>
+</header>
+
+<section class="hero">
+    <h2>Welcome to Your Digital Pet Game!</h2>
+    <p>Take care of your virtual companion and watch it thrive</p>
+</section>
+
+<div class="container">
+    <main>
+        <!-- Pet Info -->
+        <div class="pet-info">
+            <h2 id="petName">Your Pet</h2>
+            <p id="petAge">Age: 0 hours</p>
+        </div>
+
+        <!-- Pet Display -->
+        <div class="pet-display">
+            <div id="petEmoji" class="pet-emoji">🐱</div>
+            <p id="petMood" class="pet-mood">Happy</p>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="stats-section">
+            <h3>Pet Stats</h3>
+            
+            <div class="stat">
+                <label>Hunger: <span id="hungerValue">50</span>/100</label>
+                <div class="stat-bar">
+                    <div id="hungerBar" class="stat-fill hunger-bar"></div>
+                </div>
+            </div>
+
+            <div class="stat">
+                <label>Happiness: <span id="happinessValue">75</span>/100</label>
+                <div class="stat-bar">
+                    <div id="happinessBar" class="stat-fill happiness-bar"></div>
+                </div>
+            </div>
+
+            <div class="stat">
+                <label>Energy: <span id="energyValue">80</span>/100</label>
+                <div class="stat-bar">
+                    <div id="energyBar" class="stat-fill energy-bar"></div>
+                </div>
+            </div>
+
+            <div class="stat">
+                <label>Health: <span id="healthValue">90</span>/100</label>
+                <div class="stat-bar">
+                    <div id="healthBar" class="stat-fill health-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="actions-section">
+            <h3>Actions</h3>
+            <div class="action-buttons">
+                <button class="btn btn-primary" id="feedBtn">🍖 Feed</button>
+                <button class="btn btn-primary" id="playBtn">🎮 Play</button>
+                <button class="btn btn-primary" id="sleepBtn">😴 Sleep</button>
+                <button class="btn btn-primary" id="petBtn">👋 Pet</button>
+                <button class="btn btn-primary" id="cleanBtn">🧼 Clean</button>
+                <button class="btn btn-primary" id="treatBtn">🍫 Treat</button>
+            </div>
+        </div>
+        
+    </main>
+</div>
+
+<script src="../js/game.js"></script>
+</body>
+</html>

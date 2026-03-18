@@ -1,0 +1,152 @@
+{% extends "discover_base.html" %}
+
+{% block page_title %}Admin - Pet Project{% endblock %}
+{% block topbar_class %} with-back{% endblock %}
+{% block topbar_leading %}<a class="back-home" href="{% url 'home' %}" aria-label="Back to home">←</a>{% endblock %}
+{% block topbar_middle %}<h1 style="margin:0;color:#f5f5f9;">Admin Control</h1>{% endblock %}
+{% block topbar_trailing %}{% endblock %}
+
+{% block main_prefix %}
+<style>
+  .admin-wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 16px; }
+  .panel { background: #1f1f27; border: 1px solid #353546; border-radius: 12px; padding: 14px; }
+  .panel h2 { margin: 0 0 12px; color: #f2f2f8; }
+  .user-card, .report-card { background: #24242d; border: 1px solid #3b3b47; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .meta { color: #9ea2ba; }
+  .form-grid { display: grid; gap: 8px; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  input[type="text"], input[type="email"], select {
+    background: #1f1f27;
+    color: #f3f3f9;
+    border: 1px solid #3b3b47;
+    border-radius: 8px;
+    padding: 7px 9px;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border-bottom: 1px solid #333542; padding: 10px 8px; text-align: left; vertical-align: top; }
+  th { color: #b4b8cd; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  td { color: #e2e4ef; }
+  .muted { color: #9ea2ba; margin: 0 0 8px; }
+  .btn {
+    border-radius: 8px;
+    padding: 7px 11px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    color: #fff;
+    font-size: 0.8rem;
+  }
+  .btn.primary { background: #3f3f68; border-color: #6464a7; }
+  .btn.primary:hover { background: #505088; }
+  .btn.secondary { background: #4d7d5a; border-color: #5f9a6f; }
+  .btn.secondary:hover { background: #5c946b; }
+  .btn.danger { background: #7b3a45; border-color: #a2515f; }
+  .btn.danger:hover { background: #944551; }
+  .empty { color: #a5a5b1; }
+</style>
+{% endblock %}
+
+{% block main_content %}
+<div class="admin-wrap">
+  <section class="panel">
+    <h2>Users</h2>
+    {% for u in users %}
+      <div class="user-card">
+        <form method="post" class="form-grid">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_user">
+          <input type="hidden" name="user_id" value="{{ u.id }}">
+          <strong>#{{ u.id }} · {{ u.username }}</strong>
+          <label>Email</label>
+          <input type="email" name="email" value="{{ u.email }}" required>
+          <label>Username</label>
+          <input type="text" name="username" value="{{ u.username }}" required>
+          <label>Display name</label>
+          <input type="text" name="display_name" value="{{ u.display_name|default:'' }}">
+          <div class="row">
+            <label><input type="checkbox" name="is_active" {% if u.is_active %}checked{% endif %}> active</label>
+            <label><input type="checkbox" name="is_staff" {% if u.is_staff %}checked{% endif %}> mod</label>
+            <label><input type="checkbox" name="is_superuser" {% if u.is_superuser %}checked{% endif %}> admin</label>
+          </div>
+          <div class="row">
+            <button class="btn primary" type="submit">Save user</button>
+          </div>
+        </form>
+        <form method="post" onsubmit="return confirm('Delete user {{ u.username }}?');" style="margin-top:8px;">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="delete_user">
+          <input type="hidden" name="user_id" value="{{ u.id }}">
+          <button class="btn danger" type="submit">Delete user</button>
+        </form>
+      </div>
+    {% empty %}
+      <p class="empty">No users.</p>
+    {% endfor %}
+  </section>
+
+  <section class="panel">
+    <h2>Pets</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Owner</th><th>Edit</th><th>Delete</th></tr></thead>
+      <tbody>
+        {% for pet in pets %}
+          <tr>
+            <td>{{ pet.id }}</td>
+            <td>{{ pet.owner.display_name|default:pet.owner.username }}</td>
+            <td>
+              <form method="post" class="row">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_pet">
+                <input type="hidden" name="pet_id" value="{{ pet.id }}">
+                <input type="text" name="name" value="{{ pet.name }}" required>
+                <select name="visibility">
+                  <option value="private" {% if pet.visibility == 'private' %}selected{% endif %}>private</option>
+                  <option value="public" {% if pet.visibility == 'public' %}selected{% endif %}>public</option>
+                  <option value="unlisted" {% if pet.visibility == 'unlisted' %}selected{% endif %}>unlisted</option>
+                </select>
+                <label><input type="checkbox" name="is_archived" {% if pet.is_archived %}checked{% endif %}> archived</label>
+                <button class="btn primary" type="submit">Save</button>
+              </form>
+            </td>
+            <td>
+              <form method="post" onsubmit="return confirm('Delete pet {{ pet.name }}?');">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete_pet">
+                <input type="hidden" name="pet_id" value="{{ pet.id }}">
+                <button class="btn danger" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>Open reports</h2>
+    {% if active_reports %}
+      {% for report in active_reports %}
+        <article class="report-card">
+          <strong>#{{ report.id }} · {{ report.reason }}</strong>
+          <p class="muted">Pet: {% if report.pet %}{{ report.pet.name }}{% else %}N/A{% endif %} · Reporter: {{ report.reporter_user|default:'Anonymous' }}</p>
+          <div class="row">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="resolve_report">
+              <input type="hidden" name="report_id" value="{{ report.id }}">
+              <button class="btn secondary" type="submit">Resolve</button>
+            </form>
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="reject_report">
+              <input type="hidden" name="report_id" value="{{ report.id }}">
+              <button class="btn primary" type="submit">Reject</button>
+            </form>
+          </div>
+        </article>
+      {% endfor %}
+    {% else %}
+      <p class="empty">No open reports.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -1,228 +1,180 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login / Register – Pet Project</title>
-    <link rel="stylesheet" href="/static/styles.css">
-    <style>
-        .auth-page { max-width: 400px; margin: 40px auto; padding: 0 20px; }
-        .auth-page h1 { margin-bottom: 24px; }
-        .tabs { display: flex; gap: 0; margin-bottom: 20px; }
-        .tabs a { padding: 10px 20px; background: #ddd; color: #333; text-decoration: none; }
-        .tabs a.active { background: #007bff; color: white; }
-        .panel { display: none; }
-        .panel.active { display: block; }
-        .form-group { margin-bottom: 12px; }
-        .form-group label { display: block; margin-bottom: 4px; font-weight: bold; }
-        .form-group input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 8px; }
-        button:hover { background: #0056b3; }
-        .msg { margin-top: 12px; padding: 10px; border-radius: 4px; }
-        .msg.success { background: #d4edda; color: #155724; }
-        .msg.error { background: #f8d7da; color: #721c24; }
-        .back { display: inline-block; margin-bottom: 16px; color: #007bff; text-decoration: none; }
-        .back:hover { text-decoration: underline; }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>Pet Project</h1>
-        <nav>
-            <a href="/">Home</a>
-            <a href="/pets/">Pets</a>
-            <span id="nav-login-wrap"><a href="/auth/">Login / Register</a></span>
-            <span id="nav-user-wrap" style="display: none;"><span id="nav-user-name"></span> <a href="#" id="nav-signout">Sign out</a></span>
-        </nav>
-    </header>
+{% extends "discover_base.html" %}
 
-    <div class="auth-page">
-        <a href="/" class="back">← Back to home</a>
-        <h1>Login / Register</h1>
+{% block page_title %}Login / Register - virtual-pet{% endblock %}
 
-        <div id="auth-logged-in-msg" class="msg" style="display: none;"></div>
+{% block topbar_leading %}
+<h1>Account</h1>
+{% endblock %}
+{% block topbar_middle %}{% endblock %}
+{% block topbar_trailing %}{% endblock %}
 
-        <div id="auth-forms-wrap">
-        <div class="tabs">
-            <a href="#" id="tab-login" class="active">Login</a>
-            <a href="#" id="tab-register">Register</a>
-        </div>
+{% block main_content %}
+<style>
+  .auth-layout {
+    max-width: 1120px;
+    margin: 6px auto 0;
+    display: grid;
+    gap: 18px;
+    grid-template-columns: minmax(260px, 1fr) minmax(320px, 1fr) minmax(320px, 1fr);
+  }
+  .auth-hero,
+  .auth-card {
+    border-radius: 14px;
+    border: 1px solid #353546;
+    background: #1f1f27;
+  }
+  .auth-hero {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: radial-gradient(circle at top left, #2f3150 0%, #1f1f27 48%);
+  }
+  .auth-hero h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #f5f5fc;
+  }
+  .auth-hero p {
+    margin: 0;
+    color: #b8bbd1;
+    line-height: 1.45;
+    max-width: 34ch;
+  }
+  .auth-points {
+    margin: 6px 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 7px;
+  }
+  .auth-points li {
+    color: #d6d8e9;
+    font-size: 0.9rem;
+  }
+  .auth-card {
+    padding: 18px;
+  }
+  .auth-card h3 {
+    margin: 0 0 6px;
+    font-size: 1rem;
+    color: #f1f2f8;
+  }
+  .auth-subtitle {
+    margin: 0 0 14px;
+    color: #a5a8be;
+    font-size: 0.86rem;
+  }
+  .auth-form {
+    display: grid;
+    gap: 10px;
+  }
+  .auth-form label {
+    font-size: 0.84rem;
+    color: #d2d4e5;
+  }
+  .auth-form input {
+    border-radius: 10px;
+    border: 1px solid #3b3b49;
+    background: #252530;
+    color: #f5f5fa;
+    padding: 10px 11px;
+    font-size: 0.92rem;
+  }
+  .auth-form input:focus {
+    outline: none;
+    border-color: #6767b0;
+    box-shadow: 0 0 0 3px rgba(103, 103, 176, 0.18);
+  }
+  .auth-btn {
+    margin-top: 4px;
+    border-radius: 10px;
+    border: 1px solid #6363a2;
+    background: #4b4b79;
+    color: #fff;
+    padding: 10px 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .auth-btn:hover {
+    background: #59598c;
+  }
+  .auth-messages {
+    margin: 0 auto 14px;
+    max-width: 1120px;
+    display: grid;
+    gap: 8px;
+  }
+  .auth-msg {
+    border-radius: 10px;
+    border: 1px solid #404055;
+    background: #252531;
+    color: #e8e9f2;
+    padding: 9px 11px;
+    font-size: 0.88rem;
+  }
+  .auth-msg.error { border-color: #6f3c46; background: #2d2025; color: #f1c2cb; }
+  .auth-msg.success { border-color: #335c48; background: #1f2b26; color: #bfe6d3; }
+  .auth-msg.info { border-color: #395070; background: #202837; color: #c7d9f2; }
+  @media (max-width: 1020px) {
+    .auth-layout {
+      grid-template-columns: 1fr;
+    }
+    .auth-hero p {
+      max-width: none;
+    }
+  }
+</style>
 
-        <div id="panel-login" class="panel active">
-            <form id="login-form">
-                <div class="form-group">
-                    <label for="login-email">Email</label>
-                    <input type="email" id="login-email" required placeholder="you@example.com">
-                </div>
-                <div class="form-group">
-                    <label for="login-password">Password</label>
-                    <input type="password" id="login-password" required>
-                </div>
-                <button type="submit">Log in</button>
-            </form>
-            <div id="login-msg" class="msg" style="display: none;"></div>
-        </div>
+{% if messages %}
+<div class="auth-messages">
+  {% for message in messages %}
+    <div class="auth-msg {{ message.tags|default:'info' }}">{{ message }}</div>
+  {% endfor %}
+</div>
+{% endif %}
 
-        <div id="panel-register" class="panel">
-            <form id="register-form">
-                <div class="form-group">
-                    <label for="reg-email">Email</label>
-                    <input type="email" id="reg-email" required placeholder="you@example.com">
-                </div>
-                <div class="form-group">
-                    <label for="reg-username">Username</label>
-                    <input type="text" id="reg-username" required placeholder="username">
-                </div>
-                <div class="form-group">
-                    <label for="reg-password">Password (min 8)</label>
-                    <input type="password" id="reg-password" required minlength="8">
-                </div>
-                <div class="form-group">
-                    <label for="reg-display">Display name (optional)</label>
-                    <input type="text" id="reg-display" placeholder="Display name">
-                </div>
-                <button type="submit">Register</button>
-            </form>
-            <div id="register-msg" class="msg" style="display: none;"></div>
-        </div>
-        </div>
-    </div>
+<section class="auth-layout">
+  <article class="auth-hero">
+    <h2>Bring your virtual pets to life</h2>
+    <p>Sign in to keep your pets active, chat with personality-aware companions, and manage your own creations.</p>
+    <ul class="auth-points">
+      <li>Save chat history and pet progress</li>
+      <li>Upload custom pet images</li>
+      <li>Create and personalize new pets</li>
+    </ul>
+  </article>
 
-    <script>
-        (function () {
-            var token = localStorage.getItem('authToken');
-            var navLoginWrap = document.getElementById('nav-login-wrap');
-            var navUserWrap = document.getElementById('nav-user-wrap');
-            var navUserName = document.getElementById('nav-user-name');
-            var navSignOut = document.getElementById('nav-signout');
-            var authFormsWrap = document.getElementById('auth-forms-wrap');
-            var authLoggedInMsg = document.getElementById('auth-logged-in-msg');
+  <article class="auth-card">
+    <h3>Log in</h3>
+    <p class="auth-subtitle">Welcome back.</p>
+    <form method="post" class="auth-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="login">
+      <label for="login-email">Email</label>
+      <input id="login-email" type="email" name="email" autocomplete="email" required>
+      <label for="login-password">Password</label>
+      <input id="login-password" type="password" name="password" autocomplete="current-password" required>
+      <button class="auth-btn" type="submit">Log in</button>
+    </form>
+  </article>
 
-            function setNavLoggedIn(displayName) {
-                if (navLoginWrap) navLoginWrap.style.display = 'none';
-                if (navUserWrap) navUserWrap.style.display = 'inline';
-                if (navUserName) navUserName.textContent = displayName || 'You';
-            }
-            function setNavLoggedOut() {
-                if (navUserWrap) navUserWrap.style.display = 'none';
-                if (navLoginWrap) navLoginWrap.style.display = 'inline';
-            }
-            navSignOut.addEventListener('click', function (e) {
-                e.preventDefault();
-                localStorage.removeItem('authToken');
-                setNavLoggedOut();
-                if (authFormsWrap) authFormsWrap.style.display = 'block';
-                if (authLoggedInMsg) authLoggedInMsg.style.display = 'none';
-            });
-
-            function checkAuth() {
-                if (!token) {
-                    setNavLoggedOut();
-                    return;
-                }
-                fetch('/api/auth/me/', { headers: { 'Authorization': 'Token ' + token } })
-                    .then(function (r) {
-                        if (r.ok) return r.json();
-                        setNavLoggedOut();
-                        return null;
-                    })
-                    .then(function (data) {
-                        if (data) {
-                            var name = (data.display_name && data.display_name.trim()) ? data.display_name.trim() : (data.username || '');
-                            setNavLoggedIn(name);
-                            if (authFormsWrap) authFormsWrap.style.display = 'none';
-                            if (authLoggedInMsg) {
-                                authLoggedInMsg.textContent = 'You\'re logged in as ' + name + '.';
-                                authLoggedInMsg.className = 'msg success';
-                                authLoggedInMsg.style.display = 'block';
-                            }
-                        }
-                    })
-                    .catch(function () { setNavLoggedOut(); });
-            }
-            checkAuth();
-
-            var tabLogin = document.getElementById('tab-login');
-            var tabRegister = document.getElementById('tab-register');
-            var panelLogin = document.getElementById('panel-login');
-            var panelRegister = document.getElementById('panel-register');
-
-            tabLogin.onclick = function (e) {
-                e.preventDefault();
-                tabLogin.classList.add('active');
-                tabRegister.classList.remove('active');
-                panelLogin.classList.add('active');
-                panelRegister.classList.remove('active');
-            };
-            tabRegister.onclick = function (e) {
-                e.preventDefault();
-                tabRegister.classList.add('active');
-                tabLogin.classList.remove('active');
-                panelRegister.classList.add('active');
-                panelLogin.classList.remove('active');
-            };
-
-            function showMsg(el, text, isError) {
-                el.textContent = text;
-                el.className = 'msg ' + (isError ? 'error' : 'success');
-                el.style.display = 'block';
-            }
-
-            document.getElementById('login-form').onsubmit = function (e) {
-                e.preventDefault();
-                var msgEl = document.getElementById('login-msg');
-                var email = document.getElementById('login-email').value.trim();
-                var password = document.getElementById('login-password').value;
-                fetch('/api/auth/login/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: email, password: password })
-                })
-                    .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
-                    .then(function (result) {
-                        if (result.ok) {
-                            if (result.data.token) localStorage.setItem('authToken', result.data.token);
-                            var u = result.data.user || {};
-                            var name = (u.display_name && u.display_name.trim()) ? u.display_name.trim() : (u.username || email);
-                            showMsg(msgEl, 'Logged in as ' + name + '.', false);
-                            setTimeout(function () { window.location.reload(); }, 800);
-                        } else {
-                            showMsg(msgEl, result.data.detail || result.data.email || result.data.password || 'Login failed', true);
-                        }
-                    })
-                    .catch(function () { showMsg(msgEl, 'Network error', true); });
-            };
-
-            document.getElementById('register-form').onsubmit = function (e) {
-                e.preventDefault();
-                var msgEl = document.getElementById('register-msg');
-                var payload = {
-                    email: document.getElementById('reg-email').value.trim(),
-                    username: document.getElementById('reg-username').value.trim(),
-                    password: document.getElementById('reg-password').value,
-                    display_name: document.getElementById('reg-display').value.trim() || ''
-                };
-                fetch('/api/auth/register/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                })
-                    .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
-                    .then(function (result) {
-                        if (result.ok) {
-                            if (result.data.token) localStorage.setItem('authToken', result.data.token);
-                            var u = result.data.user || {};
-                            var name = (u.display_name && u.display_name.trim()) ? u.display_name.trim() : (u.username || payload.username);
-                            showMsg(msgEl, 'Registered as ' + name + '.', false);
-                            setTimeout(function () { window.location.reload(); }, 800);
-                        } else {
-                            var err = result.data.email || result.data.username || result.data.password || result.data.detail || JSON.stringify(result.data);
-                            showMsg(msgEl, typeof err === 'string' ? err : err[0] || 'Registration failed', true);
-                        }
-                    })
-                    .catch(function () { showMsg(msgEl, 'Network error', true); });
-            };
-        })();
-    </script>
-</body>
-</html>
+  <article class="auth-card">
+    <h3>Create account</h3>
+    <p class="auth-subtitle">Start building your pet world.</p>
+    <form method="post" class="auth-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="register">
+      <label for="register-email">Email</label>
+      <input id="register-email" type="email" name="email" autocomplete="email" required>
+      <label for="register-username">Username</label>
+      <input id="register-username" type="text" name="username" autocomplete="username" required>
+      <label for="register-password">Password (min 8)</label>
+      <input id="register-password" type="password" name="password" autocomplete="new-password" minlength="8" required>
+      <label for="register-display-name">Display name (optional)</label>
+      <input id="register-display-name" type="text" name="display_name" autocomplete="nickname">
+      <button class="auth-btn" type="submit">Create account</button>
+    </form>
+  </article>
+</section>
+{% endblock %}
