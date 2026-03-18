@@ -14,13 +14,11 @@ class UserManager(BaseUserManager):
             raise ValueError("The given email must be set")
         if not username:
             raise ValueError("The given username must be set")
-
         email = self.normalize_email(email)
         user = self.model(email=email, username=username, **extra_fields)
         if password is not None:
             user.set_password(password)
         else:
-            # Leaves password_hash empt caller can populate manually
             user.password = ""
         user.save(using=self._db)
         return user
@@ -35,42 +33,27 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("is_active", True)
-
         if extra_fields.get("is_staff") is not True:
             raise ValueError("Superuser must have is_staff=True.")
         if extra_fields.get("is_superuser") is not True:
             raise ValueError("Superuser must have is_superuser=True.")
-
         return self._create_user(email, username, password, **extra_fields)
 
 
 class User(AbstractBaseUser):
-    """
-    existing users table
-
-    note map Django's password field onto password_hash (db_column)
-    """
-
     id = models.BigAutoField(primary_key=True)
-
     email = models.EmailField(max_length=255, unique=True)
     username = models.CharField(max_length=50, unique=True)
     display_name = models.CharField(max_length=80, blank=True, null=True)
-
-    # AbstractBaseUser defines password and last_login. 
-    # map password to password_hash
     password = models.CharField(max_length=255, db_column="password_hash")
     password_salt = models.CharField(max_length=255, blank=True, null=True)
-
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
-
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(default=timezone.now)
 
     objects = UserManager()
-
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]
 
@@ -150,6 +133,9 @@ class PetPersonality(models.Model):
     roleplay_prompt = models.TextField()
     traits = models.JSONField(default=dict)
     tone = models.CharField(max_length=40, blank=True, null=True)
+    stat_reactions = models.JSONField(default=dict, blank=True)
+    # The pet's first message shown when the owner opens a fresh chat
+    opening_message = models.TextField(blank=True, null=True)
     updated_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
@@ -260,12 +246,58 @@ class ChatMessage(models.Model):
     content = models.TextField()
     tokens_in = models.IntegerField(blank=True, null=True)
     tokens_out = models.IntegerField(blank=True, null=True)
+    is_summarized = models.BooleanField(default=False)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
 
     class Meta:
         db_table = "chat_messages"
         indexes = [
             models.Index(fields=["session", "created_at"], name="idx_cmsg_sess_created"),
+        ]
+
+
+class ChatMessageVersion(models.Model):
+    """
+    Stores each regenerated version of a pet reply.
+    stat_snapshot stores the full stats state AFTER this version was applied.
+    """
+    id = models.BigAutoField(primary_key=True)
+    message = models.ForeignKey(
+        ChatMessage,
+        on_delete=models.CASCADE,
+        db_column="message_id",
+        related_name="versions",
+    )
+    content = models.TextField()
+    version_number = models.PositiveIntegerField()
+    stat_snapshot = models.JSONField(blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        db_table = "chat_message_versions"
+        ordering = ["version_number"]
+        indexes = [
+            models.Index(fields=["message", "version_number"], name="idx_cmv_message_version"),
+        ]
+
+
+class ChatSummary(models.Model):
+    """LLM-generated rolling summary of old messages in a session."""
+    id = models.BigAutoField(primary_key=True)
+    session = models.ForeignKey(
+        ChatSession,
+        on_delete=models.CASCADE,
+        db_column="session_id",
+        related_name="summaries",
+    )
+    summary_text = models.TextField()
+    covers_up_to_message_id = models.BigIntegerField()
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        db_table = "chat_summaries"
+        indexes = [
+            models.Index(fields=["session", "created_at"], name="idx_csum_session_created"),
         ]
 
 
@@ -301,12 +333,8 @@ class ModerationReport(models.Model):
 
     id = models.BigAutoField(primary_key=True)
     reporter_user = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
-        db_column="reporter_user_id",
-        related_name="moderation_reports_filed",
+        User, on_delete=models.SET_NULL, blank=True, null=True,
+        db_column="reporter_user_id", related_name="moderation_reports_filed",
     )
     pet = models.ForeignKey(Pet, on_delete=models.CASCADE, blank=True, null=True, db_column="pet_id", related_name="reports")
     asset = models.ForeignKey(
@@ -357,7 +385,9 @@ class AuthSession(models.Model):
             models.Index(fields=["user", "expires_at"], name="idx_asess_user_expires"),
         ]
 
+
 class temp_personality(models.Model):
     prompt = models.TextField(max_length=500)
+
     def __str__(self):
         return self.prompt
