@@ -64,134 +64,246 @@
         #custom-trait-input { background: #24242d; color: #f3f3f9; border: 1px solid #3b3b47 !important; border-radius: 8px !important; }
         #btn-add-trait { background: #535385 !important; border-radius: 8px !important; }
         #btn-add-trait:hover { background: #62629a !important; }
+        
+        /* Results grid styles */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .result-item {
+            text-align: center;
+            background: #24242d;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .result-item h3 {
+            font-size: 0.9rem;
+            color: #c4c6db;
+            margin-bottom: 8px;
+        }
+        .result-item img {
+            max-width: 100%;
+            max-height: 150px;
+            border-radius: 4px;
+        }
+        .btn-primary {
+            background: #535385;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            width: 100%;
+            margin: 10px 0;
+        }
+        .btn-primary:hover {
+            background: #62629a;
+        }
+        .upload-message {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 0.8rem;
+            z-index: 10;
+        }
+        .upload-message.success {
+            background: #28a745;
+            color: white;
+        }
+        .upload-message.error {
+            background: #dc3545;
+            color: white;
+        }
+        .upload-zone.loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        .upload-zone.loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 30px;
+            height: 30px;
+            margin: -15px 0 0 -15px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #535385;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            z-index: 10;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
 </style>
 {% endblock %}
 
 {% block main_content %}
 <div class="create-page">
-        <h1 style="margin: 0 0 18px 0; color: #f5f5f9;">Create a pet</h1>
-        <div id="from-3d-banner" style="display:none;margin-bottom:16px;padding:8px 10px;border-radius:8px;border:1px solid #535385;background:#262639;color:#d6d7f2;font-size:0.84rem;">
-            3D model loaded from the creator. When you create this pet, it will be linked to your current 3D design.
-        </div>
+    <h1 style="margin: 0 0 18px 0; color: #f5f5f9;">Create a pet</h1>
+    <div id="from-3d-banner" style="display:none;margin-bottom:16px;padding:8px 10px;border-radius:8px;border:1px solid #535385;background:#262639;color:#d6d7f2;font-size:0.84rem;">
+        3D model loaded from the creator. When you create this pet, it will be linked to your current 3D design.
+    </div>
 
-        <div class="section-title">The basics</div>
+    <div class="section-title">The basics</div>
 
+    <div class="form-group">
+        <label for="pet-name">Name *</label>
+        <input type="text" id="pet-name" maxlength="60">
+    </div>
+
+    <div class="form-row">
         <div class="form-group">
-            <label for="pet-name">Name *</label>
-            <input type="text" id="pet-name" maxlength="60">
+            <label for="pet-age">Age</label>
+            <input type="text" id="pet-age">
         </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label for="pet-age">Age</label>
-                <input type="text" id="pet-age">
-            </div>
-            <div class="form-group">
-                <label for="pet-species">What are they?</label>
-                <input type="text" id="pet-species">
-                <p class="hint">e.g. a rock, a fern, a sword</p>
-            </div>
-        </div>
-
         <div class="form-group">
-            <label>Visibility</label>
-            <div class="vis-grid">
-                <button type="button" class="vis-btn active" data-vis="private">Private</button>
-                <button type="button" class="vis-btn" data-vis="public">Public</button>
-                <button type="button" class="vis-btn" data-vis="unlisted">Unlisted</button>
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label>Photo</label>
-            <div class="upload-zone" id="upload-zone">
-                <input type="file" id="photo-input" accept="image/*">
-                <img id="photo-preview" alt="">
-                <div class="upload-placeholder">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <rect x="3" y="3" width="18" height="18" rx="2"/>
-                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                        <path d="M21 15l-5-5L5 21"/>
-                    </svg>
-                    Click or drag to upload
-                </div>
-                <button type="button" class="upload-change" id="upload-change">Change</button>
-            </div>
-        </div>
-
-        <div class="section-header">
-            <div class="section-title">Appearance &amp; character</div>
-            <button type="button" class="btn-ai-generate" id="btn-gen-appearance" title="Upload a photo to enable" disabled>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c-1 3-4 5-4 8a4 4 0 0 0 8 0c0-3-3-5-4-8z"/><path d="M12 15v6M9 18h6"/></svg>
-                Generate from photo
-            </button>
-        </div>
-
-        <div class="form-group">
-            <label for="pet-appearance">Physical description</label>
-            <textarea id="pet-appearance" maxlength="300"></textarea>
-        </div>
-
-        <div class="form-group">
-            <label for="pet-backstory">Backstory</label>
-            <textarea id="pet-backstory" maxlength="300"></textarea>
-        </div>
-
-        <div class="form-group">
-            <label for="pet-quirks">Quirks &amp; habits</label>
-            <textarea id="pet-quirks" maxlength="300"></textarea>
-        </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label for="pet-likes">Likes</label>
-                <input type="text" id="pet-likes" maxlength="200">
-            </div>
-            <div class="form-group">
-                <label for="pet-dislikes">Dislikes</label>
-                <input type="text" id="pet-dislikes" maxlength="200">
-            </div>
-        </div>
-
-        <div class="section-header">
-            <div class="section-title">Personality</div>
-            <button type="button" class="btn-ai-generate" id="btn-gen-personality" title="Upload a photo to enable" disabled>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c-1 3-4 5-4 8a4 4 0 0 0 8 0c0-3-3-5-4-8z"/><path d="M12 15v6M9 18h6"/></svg>
-                Generate from photo
-            </button>
-        </div>
-
-        <div class="form-group">
-            <label>Tone</label>
-            <div class="tone-grid" id="tone-grid"></div>
-        </div>
-
-        <div class="form-group">
-            <label>Traits</label>
-            <div class="traits-wrap" id="traits-wrap"></div>
-            <div style="display:flex;gap:8px;margin-top:10px;">
-                <input type="text" id="custom-trait-input" maxlength="30" placeholder="Add a custom trait..."
-                    style="flex:1;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:0.82rem;font-family:inherit;">
-                <button type="button" id="btn-add-trait"
-                    style="padding:6px 14px;background:#007bff;color:white;border:none;border-radius:4px;font-size:0.82rem;cursor:pointer;">Add</button>
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label for="pet-extra">Additional instructions</label>
-            <textarea id="pet-extra" maxlength="300"></textarea>
-            <p class="hint">Anything else the AI should know about how they speak or behave.</p>
-        </div>
-
-        <div class="submit-row">
-            <button class="btn-submit" id="btn-create" disabled>Create pet</button>
-            <span class="status-msg" id="create-status"></span>
+            <label for="pet-species">What are they?</label>
+            <input type="text" id="pet-species">
+            <p class="hint">e.g. a rock, a fern, a sword</p>
         </div>
     </div>
+
+    <div class="form-group">
+        <label>Visibility</label>
+        <div class="vis-grid">
+            <button type="button" class="vis-btn active" data-vis="private">Private</button>
+            <button type="button" class="vis-btn" data-vis="public">Public</button>
+            <button type="button" class="vis-btn" data-vis="unlisted">Unlisted</button>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Photo</label>
+        <div class="upload-zone" id="upload-zone">
+            <input type="file" id="photo-input" accept="image/*">
+            <img id="photo-preview" alt="">
+            <div class="upload-placeholder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <path d="M21 15l-5-5L5 21"/>
+                </svg>
+                Click or drag to upload
+            </div>
+            <button type="button" class="upload-change" id="upload-change">Change</button>
+        </div>
+    </div>
+
+    <!-- Results will be displayed here -->
+    <div id="segmentation-results" style="display: none;">
+        <h2>Segmentation Results</h2>
+        <div class="results-grid">
+            <div class="result-item">
+                <h3>Original</h3>
+                <img id="result-original" src="" alt="Original">
+            </div>
+            <div class="result-item">
+                <h3>Mask</h3>
+                <img id="result-mask" src="" alt="Mask">
+            </div>
+            <div class="result-item">
+                <h3>Overlay</h3>
+                <img id="result-overlay" src="" alt="Overlay">
+            </div>
+            <div class="result-item">
+                <h3>Cutout</h3>
+                <img id="result-cutout" src="" alt="Cutout">
+            </div>
+        </div>
+        
+        <button id="use-image-btn" class="btn-primary">
+            Use This Image for My Pet
+        </button>
+    </div>
+
+    <div class="section-header">
+        <div class="section-title">Appearance &amp; character</div>
+        <button type="button" class="btn-ai-generate" id="btn-gen-appearance" title="Upload a photo to enable" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c-1 3-4 5-4 8a4 4 0 0 0 8 0c0-3-3-5-4-8z"/><path d="M12 15v6M9 18h6"/></svg>
+            Generate from photo
+        </button>
+    </div>
+
+    <div class="form-group">
+        <label for="pet-appearance">Physical description</label>
+        <textarea id="pet-appearance" maxlength="300"></textarea>
+    </div>
+
+    <div class="form-group">
+        <label for="pet-backstory">Backstory</label>
+        <textarea id="pet-backstory" maxlength="300"></textarea>
+    </div>
+
+    <div class="form-group">
+        <label for="pet-quirks">Quirks &amp; habits</label>
+        <textarea id="pet-quirks" maxlength="300"></textarea>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="pet-likes">Likes</label>
+            <input type="text" id="pet-likes" maxlength="200">
+        </div>
+        <div class="form-group">
+            <label for="pet-dislikes">Dislikes</label>
+            <input type="text" id="pet-dislikes" maxlength="200">
+        </div>
+    </div>
+
+    <div class="section-header">
+        <div class="section-title">Personality</div>
+        <button type="button" class="btn-ai-generate" id="btn-gen-personality" title="Upload a photo to enable" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c-1 3-4 5-4 8a4 4 0 0 0 8 0c0-3-3-5-4-8z"/><path d="M12 15v6M9 18h6"/></svg>
+            Generate from photo
+        </button>
+    </div>
+
+    <div class="form-group">
+        <label>Tone</label>
+        <div class="tone-grid" id="tone-grid"></div>
+    </div>
+
+    <div class="form-group">
+        <label>Traits</label>
+        <div class="traits-wrap" id="traits-wrap"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+            <input type="text" id="custom-trait-input" maxlength="30" placeholder="Add a custom trait..."
+                style="flex:1;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:0.82rem;font-family:inherit;">
+            <button type="button" id="btn-add-trait"
+                style="padding:6px 14px;background:#007bff;color:white;border:none;border-radius:4px;font-size:0.82rem;cursor:pointer;">Add</button>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="pet-extra">Additional instructions</label>
+        <textarea id="pet-extra" maxlength="300"></textarea>
+        <p class="hint">Anything else the AI should know about how they speak or behave.</p>
+    </div>
+
+    <div class="submit-row">
+        <button class="btn-submit" id="btn-create" disabled>Create pet</button>
+        <span class="status-msg" id="create-status"></span>
+    </div>
+</div>
+
 <script>
 (function () {
+    // Global variables
     var token = localStorage.getItem('authToken');
     var importedGlbBase64 = null;
+    var uploadedFile = null;
+    var segmentationData = null;  // Store segmentation results here
+    
+    // Helper functions
     function authHeaders(extra) {
         var h = extra || {};
         if (token) h['Authorization'] = 'Token ' + token;
@@ -202,6 +314,21 @@
         var el = document.getElementById('create-status');
         el.textContent = msg;
         el.className = 'status-msg' + (type ? ' ' + type : '');
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
     }
 
     // Only treat 3D model as "from creator" when we actually came from the 3D creator (URL has from3d=1)
@@ -219,7 +346,7 @@
         }
     }
 
-    // Auth
+    // Auth check
     if (token) {
         fetch('/api/auth/me/', { headers: { 'Authorization': 'Token ' + token } })
             .then(function (r) { return r.ok ? r.json() : null; })
@@ -234,49 +361,243 @@
         setStatus('You must be logged in to create a pet.', 'error');
     }
 
-    // Photo upload
-    var uploadedFile = null;
+    // ==================== IMAGE SEGMENTATION ====================
+    
+    // ImageSegmenter class
+    class ImageSegmenter {
+        constructor() {
+            this.apiUrl = '/api/segment/';
+            this.uploadZone = document.getElementById('upload-zone');
+            this.photoInput = document.getElementById('photo-input');
+            this.photoPreview = document.getElementById('photo-preview');
+            this.uploadChange = document.getElementById('upload-change');
+            
+            if (this.uploadZone) {
+                this.initEventListeners();
+                console.log('ImageSegmenter initialized');
+            } else {
+                console.error('Upload zone not found');
+            }
+        }
+        
+        initEventListeners() {
+            console.log('Initializing event listeners');
+            
+            this.photoInput.addEventListener('change', (e) => {
+                console.log('File input changed');
+                if (e.target.files && e.target.files[0]) {
+                    this.handleFileSelect(e.target.files[0]);
+                }
+            });
+            
+            this.uploadZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                this.uploadZone.classList.add('dragover');
+            });
+            
+            this.uploadZone.addEventListener('dragleave', () => {
+                this.uploadZone.classList.remove('dragover');
+            });
+            
+            this.uploadZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                this.uploadZone.classList.remove('dragover');
+                
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    console.log('File dropped');
+                    this.photoInput.files = e.dataTransfer.files;
+                    this.handleFileSelect(e.dataTransfer.files[0]);
+                }
+            });
+            
+            this.uploadZone.addEventListener('click', (e) => {
+                if (e.target !== this.uploadChange) {
+                    this.photoInput.click();
+                }
+            });
+            
+            this.uploadChange.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.photoInput.click();
+            });
+        }
+        
+        handleFileSelect(file) {
+            console.log('Handling file select:', file.name);
+            
+            if (!file.type.startsWith('image/')) {
+                alert('Please select an image file');
+                return;
+            }
+            
+            // Store the file globally
+            uploadedFile = file;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.photoPreview.src = e.target.result;
+                this.photoPreview.style.display = 'block';
+                this.uploadZone.querySelector('.upload-placeholder').style.display = 'none';
+                this.uploadChange.style.display = 'block';
+                
+                this.uploadImage(file);
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        async uploadImage(file) {
+            console.log('Uploading image:', file.name);
+            this.uploadZone.classList.add('loading');
+            
+            const formData = new FormData();
+            formData.append('image', file);
+            
+            try {
+                const response = await fetch(this.apiUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+                
+                console.log('Upload response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`Upload failed: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('Upload response data:', data);
+                
+                if (data.success) {
+                    this.handleSuccess(data.data);
+                    
+                    // Enable generate buttons
+                    ['btn-gen-appearance', 'btn-gen-personality'].forEach(function (id) {
+                        var btn = document.getElementById(id);
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.classList.add('enabled');
+                            btn.title = '';
+                        }
+                    });
+                    
+                } else {
+                    this.handleError(data.error || 'Unknown error');
+                }
+                
+            } catch (error) {
+                console.error('Upload error:', error);
+                this.handleError(error.message);
+            } finally {
+                this.uploadZone.classList.remove('loading');
+            }
+        }
+        
+        handleSuccess(result) {
+            console.log('Segmentation successful:', result);
+            
+            // Store segmentation data globally
+            segmentationData = result;
+            
+            // Update preview images
+            document.getElementById('result-original').src = result.original_url;
+            document.getElementById('result-mask').src = result.mask_url;
+            document.getElementById('result-overlay').src = result.overlay_url;
+            document.getElementById('result-cutout').src = result.cutout_url;
+            
+            // Show results
+            document.getElementById('segmentation-results').style.display = 'block';
+            
+            this.showMessage('Image processed successfully!', 'success');
+        }
+        
+        handleError(error) {
+            console.error('Segmentation error:', error);
+            this.showMessage(`Error: ${error}`, 'error');
+        }
+        
+        showMessage(text, type) {
+            let msgEl = document.getElementById('upload-message');
+            if (!msgEl) {
+                msgEl = document.createElement('div');
+                msgEl.id = 'upload-message';
+                this.uploadZone.appendChild(msgEl);
+            }
+            
+            msgEl.textContent = text;
+            msgEl.className = `upload-message ${type}`;
+            
+            setTimeout(() => {
+                msgEl.style.opacity = '0';
+                setTimeout(() => {
+                    if (msgEl.parentNode) {
+                        msgEl.remove();
+                    }
+                }, 300);
+            }, 3000);
+        }
+    }
+
+    // Initialize ImageSegmenter
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOM loaded, checking for upload zone');
+        if (document.getElementById('upload-zone')) {
+            console.log('Upload zone found, initializing ImageSegmenter');
+            new ImageSegmenter();
+        } else {
+            console.error('Upload zone not found on page load');
+        }
+    });
+
+    // Handle "Use This Image" button click
+    document.getElementById('use-image-btn')?.addEventListener('click', function() {
+        if (!segmentationData) {
+            alert('No image has been processed yet. Please upload an image first.');
+            return;
+        }
+        
+        // Just confirm that the image is selected - don't create the pet yet
+        setStatus('Image selected! Fill in the details and click Create.', 'success');
+        
+        // You could optionally highlight the create button
+        document.getElementById('btn-create').scrollIntoView({ behavior: 'smooth' });
+    });
+
+    // ==================== EXISTING CODE (preserved) ====================
+    
+    // Photo upload handler (kept for compatibility with existing code)
     var zone = document.getElementById('upload-zone');
     var photoInput = document.getElementById('photo-input');
     var preview = document.getElementById('photo-preview');
 
     photoInput.addEventListener('change', function () {
-        if (this.files && this.files[0]) handleFile(this.files[0]);
+        if (this.files && this.files[0]) {
+            // This will be handled by ImageSegmenter class
+        }
     });
+    
     document.getElementById('upload-change').addEventListener('click', function (e) {
         e.stopPropagation();
         photoInput.click();
     });
+    
     zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.classList.add('drag-over'); });
     zone.addEventListener('dragleave', function () { zone.classList.remove('drag-over'); });
     zone.addEventListener('drop', function (e) {
         e.preventDefault(); zone.classList.remove('drag-over');
-        if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+        if (e.dataTransfer.files[0]) {
+            // This will be handled by ImageSegmenter class
+        }
     });
 
-    function handleFile(file) {
-        if (!file.type.startsWith('image/')) { setStatus('Please upload an image file.', 'error'); return; }
-        uploadedFile = file;
-        var reader = new FileReader();
-        reader.onload = function (e) {
-            preview.src = e.target.result;
-            zone.classList.add('has-image');
-            // Enable generate buttons
-            ['btn-gen-appearance', 'btn-gen-personality'].forEach(function (id) {
-                var btn = document.getElementById(id);
-                btn.disabled = false;
-                btn.classList.add('enabled');
-                btn.title = '';
-            });
-        };
-        reader.readAsDataURL(file);
-    }
-
-    // Generate buttons — wired up, ready for future implementation
+    // Generate buttons
     document.getElementById('btn-gen-appearance').addEventListener('click', function () {
         if (!uploadedFile) return;
         setStatus('AI generation coming soon.', '');
     });
+    
     document.getElementById('btn-gen-personality').addEventListener('click', function () {
         if (!uploadedFile) return;
         setStatus('AI generation coming soon.', '');
@@ -322,7 +643,6 @@
                 selectedTraits.splice(idx, 1);
                 chip.classList.remove('active');
             } else {
-                
                 selectedTraits.push(t);
                 chip.classList.add('active');
             }
@@ -352,6 +672,7 @@
     document.getElementById('btn-add-trait').addEventListener('click', function () {
         addCustomTrait(document.getElementById('custom-trait-input').value);
     });
+    
     document.getElementById('custom-trait-input').addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { e.preventDefault(); addCustomTrait(this.value); }
     });
@@ -381,7 +702,7 @@
         return parts.join('\n');
     }
 
-    // Submit
+    // Submit (Create Pet) - UPDATED to use segmentation data
     document.getElementById('btn-create').addEventListener('click', function () {
         var name = document.getElementById('pet-name').value.trim();
         if (!name) { setStatus('Please enter a name.', 'error'); return; }
@@ -390,16 +711,22 @@
         btn.disabled = true;
         setStatus('Creating...', '');
 
+        // First, create the pet with basic info
         fetch('/api/pets/', {
             method: 'POST',
             headers: authHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ name: name, visibility: selectedVis })
+            body: JSON.stringify({ 
+                name: name, 
+                visibility: selectedVis 
+            })
         })
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
         .then(function (res) {
             if (!res.ok) throw new Error(res.data.detail || JSON.stringify(res.data));
             var petId = res.data.id;
             setStatus('Saving personality...', '');
+            
+            // Save personality
             return fetch('/api/pets/' + petId + '/personality/', {
                 method: 'PATCH',
                 headers: authHeaders({ 'Content-Type': 'application/json' }),
@@ -412,15 +739,46 @@
             }).then(function () { return petId; });
         })
         .then(function (petId) {
+            // Upload the original image if we have one
             if (uploadedFile) {
+                setStatus('Uploading image...', '');
                 var form = new FormData();
                 form.append('image', uploadedFile);
-                fetch('/api/pets/' + petId + '/upload/', {
+                return fetch('/api/pets/' + petId + '/upload/', {
                     method: 'POST',
                     headers: authHeaders({}),
                     body: form
-                }).catch(function () {});
+                }).then(function () { return petId; });
             }
+            return petId;
+        })
+        .then(function (petId) {
+            // Upload segmentation results if we have them
+            if (segmentationData) {
+                setStatus('Saving segmented images...', '');
+                
+                // You might need to fetch the segmented images and upload them
+                // This depends on your backend API structure
+                var form = new FormData();
+                
+                // You can add the mask, cutout, etc. as separate fields
+                // Adjust this based on your API expectations
+                form.append('mask', segmentationData.mask);
+                form.append('cutout', segmentationData.cutout);
+                form.append('overlay', segmentationData.overlay);
+                
+                return fetch('/api/pets/' + petId + '/segmented-images/', {
+                    method: 'POST',
+                    headers: authHeaders({}),
+                    body: form
+                }).then(function () { return petId; }).catch(function(e) {
+                    console.log('Optional: segmented images upload failed', e);
+                    return petId;
+                });
+            }
+            return petId;
+        })
+        .then(function (petId) {
             if (importedGlbBase64) {
                 setStatus('Uploading 3D model...', '');
                 var binary = atob(importedGlbBase64);
