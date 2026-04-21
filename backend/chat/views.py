@@ -6,6 +6,7 @@ import random
 import threading
 import re
 import threading
+import traceback
 
 import requests
 from django.shortcuts import render
@@ -15,12 +16,12 @@ from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 
 from core.models import (
-    (
+    
     ChatMessage, ChatMessageVersion, ChatMessageVersion, ChatSession, ChatSummary,
     ChatSummary,
     Pet, PetPersonality, PetStats, temp_personality,
-),
 )
+
 from core.views_personality import VALID_TONES, VALID_TRAITS, _traits_dict, get_stat_reactions, STAT_THRESHOLDS, get_stat_reactions, STAT_THRESHOLDS
 from core.serializer import Temp_PersonalitySerializer
 
@@ -852,7 +853,6 @@ def pet_chat_api(request, pet_id):
 
         session = _get_or_create_session(request.user, pet)
         raw_messages = (
-        raw_messages = (
             ChatMessage.objects
             .filter(session=session)
             .order_by("created_at")
@@ -953,7 +953,6 @@ def pet_chat_api(request, pet_id):
             pet_reply = "I couldn't quite hear that. Try again?"
 
         if is_owner:
-        if is_owner:
             stats, _ = PetStats.objects.get_or_create(pet=pet)
             if session.stats_before_last_message:
                 snapshot = session.stats_before_last_message
@@ -961,12 +960,11 @@ def pet_chat_api(request, pet_id):
                     if field in snapshot:
                         setattr(stats, field, snapshot[field])
                 stats.save()
-                        if regen_stat_changes:
             if regen_stat_changes:
-                    from core.views_stats import _apply_deltas
-                    stats.refresh_from_db()
-                regen_stat_changes =     regen_stat_changes = _apply_deltas(stats, regen_stat_changes)
-                    stats.save()
+                from core.views_stats import _apply_deltas
+                stats.refresh_from_db()
+                regen_stat_changes = _apply_deltas(stats, regen_stat_changes)
+                stats.save()
             
             stats.refresh_from_db()
 
@@ -1067,10 +1065,8 @@ def pet_chat_api(request, pet_id):
     if is_owner and llm_stat_changes:
         from core.views_stats import _apply_deltas
         stats.refresh_from_db()
-        llm_stat_changes = llm_stat_changes = _apply_deltas(stats, llm_stat_changes)
+        llm_stat_changes = _apply_deltas(stats, llm_stat_changes)
         stats.save()
-
-    post_message_snapshot = _stats_snapshot(stats) if is_owner else None
 
     post_message_snapshot = _stats_snapshot(stats) if is_owner else None
 
@@ -1080,14 +1076,10 @@ def pet_chat_api(request, pet_id):
         _create_message_with_version(
             session, ChatMessage.Sender.PET, pet_reply, stat_snapshot=post_message_snapshot
         )
-        _create_message_with_version(
-            session, ChatMessage.Sender.PET, pet_reply, stat_snapshot=post_message_snapshot
-        )
         session.last_message_at = timezone.now()
         if pre_message_snapshot:
             session.stats_before_last_message = pre_message_snapshot
         session.save(update_fields=["last_message_at", "stats_before_last_message"])
-        _maybe_summarize(session.id, pet.name)
         _maybe_summarize(session.id, pet.name)
 
     pet.last_interaction_at = tz.now()

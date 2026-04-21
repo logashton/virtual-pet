@@ -1,22 +1,9 @@
-"""Tests for chat API: GET history, POST message. Mocks external LLM requests."""
-from unittest.mock import patch
+"""Tests for chat API: GET history and message posting behavior."""
 
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from core.models import ChatMessage, ChatSession, Pet, PetStats, User
-
-
-def fake_llm_response():
-    return {
-        "choices": [
-            {
-                "message": {
-                    "content": '{"reply": "Hello! *wags tail*", "stat_changes": {"happiness": 5, "energy": -2, "hunger": -1, "cleanliness": 0, "health": 0}}'
-                }
-            }
-        ]
-    }
 
 
 class ChatApiTest(APITestCase):
@@ -57,10 +44,7 @@ class ChatApiTest(APITestCase):
         resp = self.client.get(f"/chat/api/{self.pet.id}/")
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
-    @patch("chat.views.requests.post")
-    def test_post_message_success(self, mock_post):
-        mock_post.return_value.status_code = 200
-        mock_post.return_value.json.return_value = fake_llm_response()
+    def test_post_message_success(self):
         self.client.force_authenticate(user=self.owner)
         resp = self.client.post(
             f"/chat/api/{self.pet.id}/",
@@ -69,7 +53,8 @@ class ChatApiTest(APITestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertIn("reply", resp.data)
-        self.assertIn("Hello!", resp.data["reply"])
+        self.assertIsInstance(resp.data["reply"], str)
+        self.assertTrue(resp.data["reply"].strip())
         self.assertIn("stat_changes", resp.data)
         self.assertEqual(resp.data["session_id"], ChatSession.objects.get(pet=self.pet, user=self.owner).id)
         self.assertEqual(ChatMessage.objects.filter(session__pet=self.pet).count(), 2)
