@@ -3,12 +3,14 @@ from __future__ import annotations
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count
 from django.db import IntegrityError
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
+import random
 
-from .models import ModerationReport, Pet, PetAsset, User
+from .models import ChatSession, ModerationReport, Pet, PetAsset, PetLike, User, UserPetFollow
 
 PET_TRAIT_OPTIONS = [
     "curious",
@@ -124,24 +126,123 @@ def home_page(request: HttpRequest) -> HttpResponse:
     if selected_tag not in DISCOVER_TAG_OPTIONS:
         selected_tag = ""
 
-    public_pets = (
+    public_pets_qs = (
         Pet.objects.filter(visibility=Pet.Visibility.PUBLIC, is_archived=False)
         .select_related("owner", "personality")
         .prefetch_related("assets")
         .order_by("-updated_at")
     )
+    public_pets = list(public_pets_qs)
     if selected_tag:
         public_pets = [p for p in public_pets if _pet_has_trait(p, selected_tag)]
-    else:
-        public_pets = list(public_pets)
 
-    pet_cards = [_pet_card_data(p) for p in public_pets]
-    featured_pets = pet_cards[:18]
+    newest_pets = public_pets[:30]
+
+    popular_qs = (
+        Pet.objects.filter(visibility=Pet.Visibility.PUBLIC, is_archived=False)
+        .select_related("owner", "personality")
+        .prefetch_related("assets")
+        .annotate(
+            likes_count=Count("likes", distinct=True),
+            follows_count=Count("followers", distinct=True),
+            sessions_count=Count("chat_sessions", distinct=True),
+        )
+    )
+    popular_pets = list(popular_qs)
+    if selected_tag:
+        popular_pets = [p for p in popular_pets if _pet_has_trait(p, selected_tag)]
+    popular_pets.sort(
+        key=lambda p: (
+            (getattr(p, "likes_count", 0) * 3)
+            + (getattr(p, "follows_count", 0) * 2)
+            + getattr(p, "sessions_count", 0),
+            p.updated_at,
+        ),
+        reverse=True,
+    )
+    popular_pets = popular_pets[:30]
+
+    suggested_pets = []
+    if request.user.is_authenticated:
+        interacted_ids = set(
+            ChatSession.objects.filter(user=request.user).values_list("pet_id", flat=True)
+        )
+        interacted_ids.update(
+            PetLike.objects.filter(user=request.user).values_list("pet_id", flat=True)
+        )
+        interacted_ids.update(
+            UserPetFollow.objects.filter(user=request.user).values_list("pet_id", flat=True)
+        )
+
+        interacted_traits = set()
+        for pet in public_pets:
+            if pet.id not in interacted_ids:
+                continue
+            try:
+                raw_traits = pet.personality.traits
+            except Exception:
+                raw_traits = []
+            if isinstance(raw_traits, dict):
+                raw_traits = raw_traits.get("list", [])
+            if isinstance(raw_traits, list):
+                interacted_traits.update(str(t).strip().lower() for t in raw_traits if str(t).strip())
+
+        candidates = [
+            p for p in public_pets
+            if p.id not in interacted_ids and p.owner_id != request.user.id
+        ]
+        scored = []
+        for pet in candidates:
+            try:
+                raw_traits = pet.personality.traits
+            except Exception:
+                raw_traits = []
+            if isinstance(raw_traits, dict):
+                raw_traits = raw_traits.get("list", [])
+            pet_traits = {str(t).strip().lower() for t in raw_traits} if isinstance(raw_traits, list) else set()
+            overlap = len(interacted_traits.intersection(pet_traits))
+            scored.append((overlap, pet.updated_at, pet))
+        scored.sort(key=lambda row: (row[0], row[1]), reverse=True)
+        suggested_pets = [row[2] for row in scored if row[0] > 0][:30]
+        if not suggested_pets:
+            suggested_pets = candidates[:30]
+
+    lucky_dip = list(public_pets)
+    random.shuffle(lucky_dip)
+    lucky_dip = lucky_dip[:30]
+
+    discover_sections = [
+        {
+            "key": "newest",
+            "title": "Newest Pets",
+            "subtitle": "Fresh public pets from the community.",
+            "pets": [_pet_card_data(p) for p in newest_pets],
+        },
+        {
+            "key": "popular",
+            "title": "Most Popular Pets",
+            "subtitle": "Trending pets based on likes, follows, and chat activity.",
+            "pets": [_pet_card_data(p) for p in popular_pets],
+        },
+        {
+            "key": "suggested",
+            "title": "Suggested For You",
+            "subtitle": "Recommendations based on pets you have chatted with, liked, or followed.",
+            "pets": [_pet_card_data(p) for p in suggested_pets] if request.user.is_authenticated else [],
+            "empty_note": "Log in and interact with pets to unlock personalized suggestions.",
+        },
+        {
+            "key": "lucky",
+            "title": "Lucky Dip",
+            "subtitle": "A random mix of public pets. Refresh for a new set.",
+            "pets": [_pet_card_data(p) for p in lucky_dip],
+        },
+    ]
     return render(
         request,
         "index.html",
         {
-            "featured_pets": featured_pets,
+            "discover_sections": discover_sections,
             "available_tags": DISCOVER_TAG_OPTIONS,
             "selected_tag": selected_tag,
         },

@@ -34,6 +34,56 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
             gap: 12px;
+            transition: opacity 220ms ease, transform 220ms ease;
+            will-change: opacity, transform;
+        }
+        .discover-grid.is-transitioning-out {
+            opacity: 0;
+            transform: translateX(-12px);
+        }
+        .discover-grid.is-transitioning-in {
+            opacity: 0;
+            transform: translateX(12px);
+        }
+        .pet-card.is-hidden {
+            display: none;
+        }
+        .discover-grid-wrap {
+            position: relative;
+        }
+        .discover-pager-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            border: 1px solid #4a4a60;
+            background: rgba(35, 35, 45, 0.95);
+            color: #f2f2f7;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 2;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 180ms ease, background 0.2s ease;
+        }
+        .discover-grid-wrap.show-pager .discover-pager-btn { opacity: 1; pointer-events: auto; }
+        .discover-pager-btn:hover { background: rgba(53, 53, 68, 0.95); }
+        .discover-pager-btn[disabled] {
+            opacity: 0.35;
+            cursor: default;
+        }
+        .discover-pager-prev { left: -14px; }
+        .discover-pager-next { right: -14px; }
+        .discover-pager-meta {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #a5a5b3;
+            text-align: right;
         }
         .pet-card {
             background: linear-gradient(180deg, #272732 0%, #1f1f27 100%);
@@ -122,17 +172,20 @@
         {% endfor %}
     </div>
 
+    {% for section in discover_sections %}
     <div class="discover-section">
-        <h2>Featured Pets</h2>
+        <h2>{{ section.title }}</h2>
         {% if selected_tag %}
-            <p>Showing pets tagged "{{ selected_tag|title }}".</p>
+            <p>{{ section.subtitle }} Filtered by "{{ selected_tag|title }}".</p>
         {% else %}
-            <p>Newest public pets from the community.</p>
+            <p>{{ section.subtitle }}</p>
         {% endif %}
-        {% if featured_pets %}
-            <div class="discover-grid">
-                {% for pet in featured_pets %}
-                    <article class="pet-card">
+        {% if section.pets %}
+            <div class="discover-grid-wrap discover-grid-pager" data-pager-key="{{ section.key }}">
+            <button type="button" class="discover-pager-btn discover-pager-prev" data-pager-prev aria-label="Show previous pets">←</button>
+            <div class="discover-grid" data-pager-grid>
+                {% for pet in section.pets %}
+                    <article class="pet-card featured-pet-card">
                         <div class="thumb">
                             {% if pet.image_url %}
                                 <img src="{{ pet.image_url }}" alt="{{ pet.name }}">
@@ -173,8 +226,110 @@
                     </article>
                 {% endfor %}
             </div>
+            <button type="button" class="discover-pager-btn discover-pager-next" data-pager-next aria-label="Show more pets">→</button>
+            <div class="discover-pager-meta" data-pager-meta></div>
+            </div>
         {% else %}
-            <div class="empty-note">No featured pets yet. Create one and set it public to populate this board.</div>
+            <div class="empty-note">{{ section.empty_note|default:"No pets available in this category yet." }}</div>
         {% endif %}
     </div>
+    {% endfor %}
+    <script>
+        (function () {
+            const pagers = Array.from(document.querySelectorAll('.discover-grid-pager'));
+            if (!pagers.length) return;
+
+            const pagerInstances = [];
+
+            pagers.forEach((wrap) => {
+                const grid = wrap.querySelector('[data-pager-grid]');
+                const prevBtn = wrap.querySelector('[data-pager-prev]');
+                const nextBtn = wrap.querySelector('[data-pager-next]');
+                const meta = wrap.querySelector('[data-pager-meta]');
+                if (!grid || !prevBtn || !nextBtn || !meta) return;
+
+                const cards = Array.from(grid.querySelectorAll('.featured-pet-card'));
+                if (!cards.length) return;
+
+                let pageSize = cards.length;
+                let pageIndex = 0;
+                let totalPages = 1;
+                let isAnimating = false;
+
+                function calculatePageSize() {
+                    const sample = cards[0];
+                    if (!sample) return cards.length;
+                    const cardRect = sample.getBoundingClientRect();
+                    const style = window.getComputedStyle(grid);
+                    const gap = parseFloat(style.columnGap || style.gap || '12') || 12;
+                    const wrapWidth = wrap.clientWidth;
+                    const cardWidth = Math.max(cardRect.width, 220);
+                    const columns = Math.max(1, Math.floor((wrapWidth + gap) / (cardWidth + gap)));
+                    const availableHeight = Math.max(220, window.innerHeight - grid.getBoundingClientRect().top - 120);
+                    const rowHeight = Math.max(cardRect.height + gap, 190);
+                    const rows = Math.max(1, Math.floor(availableHeight / rowHeight));
+                    return Math.max(1, columns * rows);
+                }
+
+                function renderPage() {
+                    const start = pageIndex * pageSize;
+                    const end = start + pageSize;
+                    cards.forEach((card, idx) => {
+                        card.classList.toggle('is-hidden', idx < start || idx >= end);
+                    });
+                    prevBtn.disabled = pageIndex <= 0;
+                    nextBtn.disabled = pageIndex >= totalPages - 1;
+                    meta.textContent = `Showing ${Math.min(cards.length, start + 1)}-${Math.min(cards.length, end)} of ${cards.length}`;
+                }
+
+                function transitionTo(nextPage) {
+                    if (isAnimating || nextPage === pageIndex || nextPage < 0 || nextPage >= totalPages) return;
+                    isAnimating = true;
+                    grid.classList.add('is-transitioning-out');
+                    window.setTimeout(() => {
+                        pageIndex = nextPage;
+                        renderPage();
+                        grid.classList.remove('is-transitioning-out');
+                        grid.classList.add('is-transitioning-in');
+                        window.setTimeout(() => {
+                            grid.classList.remove('is-transitioning-in');
+                            isAnimating = false;
+                        }, 230);
+                    }, 230);
+                }
+
+                function recalcAndRender() {
+                    const prevFirstItem = pageIndex * pageSize;
+                    pageSize = calculatePageSize();
+                    totalPages = Math.max(1, Math.ceil(cards.length / pageSize));
+                    pageIndex = Math.min(totalPages - 1, Math.floor(prevFirstItem / pageSize));
+                    renderPage();
+                }
+
+                prevBtn.addEventListener('click', () => transitionTo(pageIndex - 1));
+                nextBtn.addEventListener('click', () => transitionTo(pageIndex + 1));
+                cards.forEach((card) => {
+                    card.addEventListener('mouseenter', () => {
+                        wrap.classList.add('show-pager');
+                    });
+                    card.addEventListener('mouseleave', () => {
+                        if (!wrap.querySelector('.featured-pet-card:hover')) {
+                            wrap.classList.remove('show-pager');
+                        }
+                    });
+                });
+                wrap.addEventListener('mouseleave', () => {
+                    wrap.classList.remove('show-pager');
+                });
+
+                recalcAndRender();
+                pagerInstances.push({ recalcAndRender });
+            });
+
+            if (!pagerInstances.length) return;
+            window.addEventListener('resize', () => {
+                pagerInstances.forEach((pager) => pager.recalcAndRender());
+            });
+        })();
+    </script>
 {% endblock %}
