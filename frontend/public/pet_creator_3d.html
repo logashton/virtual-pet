@@ -137,6 +137,35 @@
         color: #6e6e80;
         margin-top: 4px;
     }
+    .import-progress {
+        margin-top: 8px;
+        display: none;
+    }
+    .import-progress.visible {
+        display: block;
+    }
+    .import-progress-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+        font-size: 0.75rem;
+        color: #a9acc5;
+    }
+    .import-progress-track {
+        width: 100%;
+        height: 8px;
+        border-radius: 999px;
+        background: #2a2a35;
+        border: 1px solid #3b3b47;
+        overflow: hidden;
+    }
+    .import-progress-fill {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #6464a7 0%, #8d8de0 100%);
+        transition: width 200ms ease;
+    }
     select.creator-select, input[type="range"] {
         background: #24242d;
         color: #e0e0eb;
@@ -175,6 +204,15 @@
                 Image to 3D
             </button>
             <p class="creator-hint" id="image-3d-status">Upload a photo; background is removed and added as a 3D cutout. Log in required.</p>
+            <div class="import-progress" id="image-3d-progress" aria-live="polite">
+                <div class="import-progress-label">
+                    <span id="image-3d-stage">Waiting to start</span>
+                    <span id="image-3d-percent">0%</span>
+                </div>
+                <div class="import-progress-track">
+                    <div class="import-progress-fill" id="image-3d-progress-fill"></div>
+                </div>
+            </div>
         </div>
         <div>
             <h3>Shapes</h3>
@@ -232,6 +270,10 @@ const btnClear = document.getElementById('btn-clear');
 const btnImportImage = document.getElementById('btn-import-image');
 const inputImage3d = document.getElementById('input-image-3d');
 const image3dStatus = document.getElementById('image-3d-status');
+const image3dProgress = document.getElementById('image-3d-progress');
+const image3dProgressFill = document.getElementById('image-3d-progress-fill');
+const image3dStage = document.getElementById('image-3d-stage');
+const image3dPercent = document.getElementById('image-3d-percent');
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a1a24);
@@ -727,6 +769,22 @@ document.querySelectorAll('.shape-btn[data-shape]').forEach((btn) => {
 });
 
 const gltfLoader = new GLTFLoader();
+
+function setImageImportProgress(percent, stageText) {
+  const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+  image3dProgress.classList.add('visible');
+  image3dProgressFill.style.width = `${clamped}%`;
+  image3dPercent.textContent = `${clamped}%`;
+  image3dStage.textContent = stageText;
+}
+
+function resetImageImportProgress() {
+  image3dProgress.classList.remove('visible');
+  image3dProgressFill.style.width = '0%';
+  image3dPercent.textContent = '0%';
+  image3dStage.textContent = 'Waiting to start';
+}
+
 btnImportImage.addEventListener('click', () => inputImage3d.click());
 inputImage3d.addEventListener('change', async (e) => {
   const file = e.target && e.target.files && e.target.files[0];
@@ -734,25 +792,33 @@ inputImage3d.addEventListener('change', async (e) => {
   if (!file) return;
   const token = window.localStorage && window.localStorage.getItem('authToken');
   if (!token) {
+    resetImageImportProgress();
     image3dStatus.textContent = 'Please log in to use Image to 3D.';
     return;
   }
-  image3dStatus.textContent = 'Processing…';
+  btnImportImage.disabled = true;
+  setImageImportProgress(5, 'Preparing image upload');
+  image3dStatus.textContent = 'Starting image import...';
   try {
     const form = new FormData();
     form.append('image', file);
+    setImageImportProgress(20, 'Uploading image to server');
     const r = await fetch('/api/image-to-3d/', {
       method: 'POST',
       headers: { 'Authorization': 'Token ' + token },
       body: form,
     });
+    setImageImportProgress(65, 'Converting image to 3D model');
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
+      resetImageImportProgress();
       image3dStatus.textContent = err.detail || 'Image to 3D failed.';
       return;
     }
+    setImageImportProgress(80, 'Downloading generated 3D model');
     const blob = await r.blob();
     const url = URL.createObjectURL(blob);
+    setImageImportProgress(88, 'Loading model into viewer');
     const gltf = await gltfLoader.loadAsync(url);
     URL.revokeObjectURL(url);
     const model = gltf.scene;
@@ -775,9 +841,16 @@ inputImage3d.addEventListener('change', async (e) => {
     transformControls.setMode('translate');
     drawMode = false;
     btnDraw.classList.remove('active');
+    setImageImportProgress(100, 'Done');
     image3dStatus.textContent = 'Added to scene. Move/rotate/scale with tools.';
+    setTimeout(() => {
+      resetImageImportProgress();
+    }, 1200);
   } catch (err) {
+    resetImageImportProgress();
     image3dStatus.textContent = 'Failed to load 3D model.';
+  } finally {
+    btnImportImage.disabled = false;
   }
 });
 
