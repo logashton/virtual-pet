@@ -1,0 +1,44 @@
+virtual-pet — Demo scenario
+==========================================
+
+---
+
+Guest / new user — Discover and sign up
+---------------------------------------
+user1 opens the home page and scrolls through several discover rows (Newest, Popular, Lucky Dip) to see what other people’s pets look like. They use trait chips to narrow the feed, then decide they want their own pet and go to Login / Register, create an account, and land back on Discover.
+
+---
+
+Regular user — 2D pet, chat, and care
+-------------------------------------
+user1 creates a pet the usual way (upload a 2D image, set visibility, finish creation). They open chat with their pet, send messages, and use quick actions so stats change over time (feed, play, etc.). They visit their pet on the “Me" area.
+
+---
+
+Same user — 3D creator and image-to-3D
+--------------------------------------
+user1 opens the 3D Pet Creator. They try the draw tools and drop a few primitive shapes to get a feel for the editor, then switch to “Image to 3D," watch the progress stages while the server processes, and upload a photo of a rock so the cutout becomes a textured 3D model in the scene. They tweak position/scale, export, and continue pet creation so the new pet is tied to that 3D asset.
+
+---
+
+Bad actor — Inappropriate content and report
+---------------------------------------------
+user_bad creates a public pet with offensive imagery or text. user2 (another logged-in user) browses Discover, opens user_bad’s pet, and uses Report on the card. user2 submits a reason and optional details; the report is filed for staff.
+
+---
+
+Moderator — Mod dashboard
+-------------------------
+mod1 logs in and opens the Mod dashboard. They see user2’s report, review the pet and context, and resolve the report (e.g. mark resolved after removing or confirming policy action), so the queue reflects the outcome.
+
+---
+
+Admin — Remove the bad actor
+----------------------------
+admin1 logs into Manage / admin tools, finds user_bad’s account or the offending pet, and removes or disables the bad actor so user_bad can no longer use the app the same way. Discover no longer surfaces that pet, and the team’s workflow (report → mod → admin) is visible end-to-end.
+
+---
+
+Search and “For you" (Optional tbh)
+--------------------------------------
+Before or after the main part, user1 uses the top search to find a pet by name or trait, and glances at personalized rows (e.g. suggestions based on prior chats/likes) to show that the app remembers light engagement history without derailing.
