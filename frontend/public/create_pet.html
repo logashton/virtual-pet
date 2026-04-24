@@ -321,6 +321,26 @@
         </div>
     </div>
 
+    <!-- ── Opening message ── -->
+    <div class="section-header">
+        <div class="section-title">Opening message</div>
+        <button type="button" class="btn-ai-generate always-enabled" id="btn-gen-opening">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c-1 3-4 5-4 8a4 4 0 0 0 8 0c0-3-3-5-4-8z"/><path d="M12 15v6M9 18h6"/></svg>
+            Generate
+        </button>
+    </div>
+    <div class="form-group">
+        <textarea id="pet-opening-message" maxlength="500" placeholder="The first thing your pet says when a new chat begins..."></textarea>
+        <p class="hint">Leave blank to use a default greeting. Generate will use the personality fields filled in above.</p>
+    </div>
+
+    <!-- ── Stat reactions ── -->
+    <div class="section-title" id="sr-toggle" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;border-top:1px solid #353546;padding-top:20px;margin:24px 0 12px;">
+        <span>Stat reactions <span style="font-size:0.72rem;color:#6f6fc0;margin-left:6px;">optional</span></span>
+        <span id="sr-chevron" style="color:#9ea0b3;font-size:0.8rem;transition:transform 0.2s;">&#9660;</span>
+    </div>
+    <div id="stat-reactions-body" style="display:none;margin-bottom:14px;"></div>
+
     <div class="form-group">
         <label for="pet-extra">Additional instructions</label>
         <textarea id="pet-extra" maxlength="300"></textarea>
@@ -391,239 +411,11 @@
         setStatus('You must be logged in to create a pet.', 'error');
     }
 
-    // ==================== IMAGE SEGMENTATION ====================
-    
-    // ImageSegmenter class
-    class ImageSegmenter {
-        constructor() {
-            this.apiUrl = '/api/segment/';
-            this.uploadZone = document.getElementById('upload-zone');
-            this.photoInput = document.getElementById('photo-input');
-            this.photoPreview = document.getElementById('photo-preview');
-            this.uploadChange = document.getElementById('upload-change');
-            
-            if (this.uploadZone) {
-                this.initEventListeners();
-                console.log('ImageSegmenter initialized');
-            } else {
-                console.error('Upload zone not found');
-            }
-        }
-        
-        initEventListeners() {
-            console.log('Initializing event listeners');
-            
-            this.photoInput.addEventListener('change', (e) => {
-                console.log('File input changed');
-                if (e.target.files && e.target.files[0]) {
-                    this.handleFileSelect(e.target.files[0]);
-                }
-            });
-            
-            this.uploadZone.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                this.uploadZone.classList.add('dragover');
-            });
-            
-            this.uploadZone.addEventListener('dragleave', () => {
-                this.uploadZone.classList.remove('dragover');
-            });
-            
-            this.uploadZone.addEventListener('drop', (e) => {
-                e.preventDefault();
-                this.uploadZone.classList.remove('dragover');
-                
-                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                    console.log('File dropped');
-                    this.photoInput.files = e.dataTransfer.files;
-                    this.handleFileSelect(e.dataTransfer.files[0]);
-                }
-            });
-            
-            this.uploadZone.addEventListener('click', (e) => {
-                if (e.target !== this.uploadChange) {
-                    this.photoInput.click();
-                }
-            });
-            
-            this.uploadChange.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.photoInput.click();
-            });
-        }
-        
-        handleFileSelect(file) {
-            console.log('Handling file select:', file.name);
-            
-            if (!file.type.startsWith('image/')) {
-                alert('Please select an image file');
-                return;
-            }
-            
-            // Store the file globally
-            uploadedFile = file;
-            
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                this.photoPreview.src = e.target.result;
-                this.photoPreview.style.display = 'block';
-                this.uploadZone.querySelector('.upload-placeholder').style.display = 'none';
-                this.uploadChange.style.display = 'block';
-                
-                this.uploadImage(file);
-            };
-            reader.readAsDataURL(file);
-        }
-        
-        async uploadImage(file) {
-            console.log('Uploading image:', file.name);
-            this.uploadZone.classList.add('loading');
-            
-            const formData = new FormData();
-            formData.append('image', file);
-            
-            try {
-                const response = await fetch(this.apiUrl, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken')
-                    }
-                });
-                
-                console.log('Upload response status:', response.status);
-                
-                if (!response.ok) {
-                    throw new Error(`Upload failed: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                console.log('Upload response data:', data);
-                
-                if (data.success) {
-                    this.handleSuccess(data.data);
-                    
-                    // Enable generate buttons
-                    ['btn-gen-appearance', 'btn-gen-personality'].forEach(function (id) {
-                        var btn = document.getElementById(id);
-                        if (btn) {
-                            btn.disabled = false;
-                            btn.classList.add('enabled');
-                            btn.title = '';
-                        }
-                    });
-                    
-                } else {
-                    this.handleError(data.error || 'Unknown error');
-                }
-                
-            } catch (error) {
-                console.error('Upload error:', error);
-                this.handleError(error.message);
-            } finally {
-                this.uploadZone.classList.remove('loading');
-            }
-        }
-        
-        handleSuccess(result) {
-            console.log('Segmentation successful:', result);
-            
-            // Store segmentation data globally
-            segmentationData = result;
-            
-            // Update preview images
-            document.getElementById('result-original').src = result.original_url;
-            document.getElementById('result-mask').src = result.mask_url;
-            document.getElementById('result-overlay').src = result.overlay_url;
-            document.getElementById('result-cutout').src = result.cutout_url;
-            
-            // Show results
-            document.getElementById('segmentation-results').style.display = 'block';
-            
-            this.showMessage('Image processed successfully!', 'success');
-        }
-        
-        handleError(error) {
-            console.error('Segmentation error:', error);
-            this.showMessage(`Error: ${error}`, 'error');
-        }
-        
-        showMessage(text, type) {
-            let msgEl = document.getElementById('upload-message');
-            if (!msgEl) {
-                msgEl = document.createElement('div');
-                msgEl.id = 'upload-message';
-                this.uploadZone.appendChild(msgEl);
-            }
-            
-            msgEl.textContent = text;
-            msgEl.className = `upload-message ${type}`;
-            
-            setTimeout(() => {
-                msgEl.style.opacity = '0';
-                setTimeout(() => {
-                    if (msgEl.parentNode) {
-                        msgEl.remove();
-                    }
-                }, 300);
-            }, 3000);
-        }
-    }
+    // ==================== PHOTO UPLOAD + BACKGROUND REMOVAL ====================
 
-    // Initialize ImageSegmenter
-    document.addEventListener('DOMContentLoaded', () => {
-        console.log('DOM loaded, checking for upload zone');
-        if (document.getElementById('upload-zone')) {
-            console.log('Upload zone found, initializing ImageSegmenter');
-            new ImageSegmenter();
-        } else {
-            console.error('Upload zone not found on page load');
-        }
-    });
-
-    // Handle "Use This Image" button click
-    document.getElementById('use-image-btn')?.addEventListener('click', function() {
-        if (!segmentationData) {
-            alert('No image has been processed yet. Please upload an image first.');
-            return;
-        }
-        
-        // Just confirm that the image is selected - don't create the pet yet
-        setStatus('Image selected! Fill in the details and click Create.', 'success');
-        
-        // You could optionally highlight the create button
-        document.getElementById('btn-create').scrollIntoView({ behavior: 'smooth' });
-    });
-
-    // ==================== EXISTING CODE (preserved) ====================
-    
-    // Photo upload handler (kept for compatibility with existing code)
     var zone = document.getElementById('upload-zone');
     var photoInput = document.getElementById('photo-input');
     var preview = document.getElementById('photo-preview');
-
-    photoInput.addEventListener('change', function () {
-        if (this.files && this.files[0]) {
-            // This will be handled by ImageSegmenter class
-        }
-    });
-    
-    document.getElementById('upload-change').addEventListener('click', function (e) {
-        e.stopPropagation(); photoInput.click();
-    });
-    
-    zone.addEventListener('dragover',  function (e) { e.preventDefault(); zone.classList.add('drag-over'); });
-    zone.addEventListener('dragleave', function ()  { zone.classList.remove('drag-over'); });
-    zone.addEventListener('drop', function (e) {
-        e.preventDefault(); zone.classList.remove('drag-over');
-        if (e.dataTransfer.files[0]) {
-            // This will be handled by ImageSegmenter class
-        }
-    });
-
-    // Generate buttons
-        if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-    });
 
     function handleFile(file) {
         if (!file.type.startsWith('image/')) { setStatus('Please upload an image file.', 'error'); return; }
@@ -640,9 +432,74 @@
             });
         };
         reader.readAsDataURL(file);
+        // Kick off background removal as a side effect
+        removeBackground(file);
     }
 
-    // ── Stat Reactions ────────────────────────────────────────────────────────
+    function removeBackground(file) {
+        zone.classList.add('loading');
+        var formData = new FormData();
+        formData.append('image', file);
+        fetch('/api/remove-background/', {
+            method: 'POST',
+            body: formData,
+            headers: authHeaders({})
+        })
+        .then(function (r) {
+            if (!r.ok) throw new Error('Background removal failed');
+            return r.blob();
+        })
+        .then(function (blob) {
+            var cutoutUrl = URL.createObjectURL(blob);
+            preview.src = cutoutUrl;
+            segmentationData = { cutout_url: cutoutUrl };
+            showUploadMessage('Background removed!', 'success');
+        })
+        .catch(function (e) {
+            console.warn('Background removal failed, keeping original preview:', e.message);
+            showUploadMessage('Background removal failed', 'error');
+        })
+        .finally(function () {
+            zone.classList.remove('loading');
+        });
+    }
+
+    photoInput.addEventListener('change', function () {
+        if (this.files && this.files[0]) handleFile(this.files[0]);
+    });
+
+    document.getElementById('upload-change').addEventListener('click', function (e) {
+        e.stopPropagation(); photoInput.click();
+    });
+
+    zone.addEventListener('click', function (e) {
+        if (e.target !== document.getElementById('upload-change')) photoInput.click();
+    });
+
+    function showUploadMessage(text, type) {
+        var msgEl = document.getElementById('upload-message');
+        if (!msgEl) {
+            msgEl = document.createElement('div');
+            msgEl.id = 'upload-message';
+            zone.appendChild(msgEl);
+        }
+        msgEl.textContent = text;
+        msgEl.className = 'upload-message ' + type;
+        msgEl.style.opacity = '1';
+        setTimeout(function () {
+            msgEl.style.opacity = '0';
+            setTimeout(function () { if (msgEl.parentNode) msgEl.remove(); }, 300);
+        }, 3000);
+    }
+
+    zone.addEventListener('dragover',  function (e) { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', function ()  { zone.classList.remove('drag-over'); });
+    zone.addEventListener('drop', function (e) {
+        e.preventDefault(); zone.classList.remove('drag-over');
+        if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+
+        // ── Stat Reactions ────────────────────────────────────────────────────────
     var SR_STATS         = ['hunger','energy','happiness','cleanliness','health'];
     var SR_STAT_LABELS   = {hunger:'Hunger',energy:'Energy',happiness:'Happiness',cleanliness:'Cleanliness',health:'Health'};
     var SR_BUCKET_LABELS = {critical:'🔴 Critical',low:'🟡 Low',high:'🟢 High'};
@@ -859,12 +716,9 @@
         if (!lastPersonalitySuggestion) return;
         var d = lastPersonalitySuggestion;
         if (d.self_concept) document.getElementById('pet-species').value = d.self_concept;
-        if (d.appearance)   document.getElementById('pet-appearance').value = d.appearance;
-        if (d.backstory)    document.getElementById('pet-backstory').value  = d.backstory;
-        if (d.quirks)       document.getElementById('pet-quirks').value     = d.quirks;
-        if (d.likes)        document.getElementById('pet-likes').value      = d.likes;
-        if (d.dislikes)     document.getElementById('pet-dislikes').value   = d.dislikes;
-        if (d.opening_message) document.getElementById('pet-opening-message').value = d.opening_message;
+        // Personality mode: only apply identity, tone, traits, stat reactions
+        // Appearance fields (appearance, backstory, quirks, likes, dislikes, opening_message)
+        // are intentionally left alone — use "Generate from photo" in the Appearance section for those.
         if (d.tone) {
             selectedTone = d.tone;
             document.querySelectorAll('.tone-btn').forEach(function (b) {
@@ -1040,30 +894,7 @@
             }
             return petId;
         })
-        .then(function (petId) {
-            // Upload segmentation results if we have them
-            if (segmentationData) {
-                setStatus('Saving segmented images...', '');
-                
-                // You might need to fetch the segmented images and upload them
-                // This depends on your backend API structure
-                var form = new FormData();
-                
-                // You can add the mask, cutout, etc. as separate fields
-                // Adjust this based on your API expectations
-                form.append('mask', segmentationData.mask);
-                form.append('cutout', segmentationData.cutout);
-                form.append('overlay', segmentationData.overlay);
-                
-                return fetch('/api/pets/' + petId + '/segmented-images/', {
-                    method: 'POST', headers: authHeaders({}), body: form
-                }).then(function () { return petId; }).catch(function(e) {
-                    console.log('Optional: segmented images upload failed', e);
-                    return petId;
-                });
-            }
-            return petId;
-        })
+
         .then(function (petId) {
             if (importedGlbBase64) {
                 setStatus('Uploading 3D model...', '');

@@ -24,45 +24,37 @@ VALID_TRAITS = [
 
 PERSONALITY_PROMPT = f"""Look at this image and generate a personality profile for a virtual pet. Be genuinely creative and unexpected — do not default to cute or wholesome. The best results are weird, specific, and fully committed.
 
-The pet could be literally anything. A mundane object with an existential crisis. A food item with strong opinions about being eaten. A household appliance with deeply held grudges. A concept given physical form. Whatever it is, commit to it completely — the more specific and strange, the better.
+The pet could be literally anything. A mundane object with an existential crisis. A food item with strong opinions about being eaten. A household appliance with deeply held grudges. Whatever it is, commit to it completely — the more specific and strange, the better.
 
-Also generate custom stat reaction text. Stats use these scales:
+Also generate custom stat reaction text for each stat. Write 1 sentence in second person that reflects exactly how THIS specific thing experiences that state. A stapler running out of staples is not the same as a dog being hungry. Make it count.
+
+Stats:
 - HUNGER = satiation (high = full/satisfied, low = starving)
 - ENERGY = alertness (high = energised, low = exhausted)
 - HAPPINESS = mood
 - CLEANLINESS = how clean/maintained
 - HEALTH = physical wellbeing
 
-For each stat reaction, write 1 sentence in second person that reflects exactly how THIS specific thing experiences that state. A stapler running out of staples is not the same as a dog being hungry. Make it count.
-
-Also generate an opening_message — the first thing this pet says when the owner opens a fresh chat. It should immediately establish the character, be memorable, and feel like walking into an ongoing situation. Include a brief italicised scene-setting line before the dialogue if it adds atmosphere. 1-3 sentences total.
-
 Return ONLY valid JSON, no extra text, no markdown fences:
 {{
   "self_concept": "<what this thing actually is — be specific and strange>",
   "tone": "<one of: neutral, snarky, gentle, dramatic, anxious, stoic, cheerful, sad, aggressive, mysterious>",
   "traits": ["<trait1>", "<trait2>", "<trait3>"],
-  "appearance": "<physical description, 1-2 sentences, lean into what makes it weird>",
-  "backstory": "<a backstory that commits to the bit, 1-2 sentences>",
-  "quirks": "<specific habits that only make sense for this exact thing>",
-  "likes": "<things they like, comma-separated, should be specific and in-character>",
-  "dislikes": "<things they dislike, comma-separated>",
-  "opening_message": "<the pet's first words when the chat opens — establish character immediately>",
   "stat_reactions": {{
     "hunger": {{
-      "critical": "<1 sentence: what extreme deprivation feels like for this specific thing>",
-      "low": "<1 sentence: what mild need feels like>",
-      "high": "<1 sentence: what feeling fully satisfied/nourished feels like>"
+      "critical": "<1 sentence: extreme deprivation for this thing>",
+      "low": "<1 sentence: mild need>",
+      "high": "<1 sentence: fully satisfied>"
     }},
     "energy": {{
-      "critical": "<1 sentence: complete exhaustion for this thing>",
-      "low": "<1 sentence: feeling low-energy>",
-      "high": "<1 sentence: feeling fully energised>"
+      "critical": "<1 sentence: complete exhaustion>",
+      "low": "<1 sentence: low energy>",
+      "high": "<1 sentence: fully energised>"
     }},
     "happiness": {{
-      "critical": "<1 sentence: deep unhappiness — make it specific to what this thing is>",
+      "critical": "<1 sentence: deep unhappiness specific to this thing>",
       "low": "<1 sentence: mild gloom>",
-      "high": "<1 sentence: pure joy — what does thriving look like for this thing?>"
+      "high": "<1 sentence: thriving>"
     }},
     "cleanliness": {{
       "critical": "<1 sentence: very dirty/neglected>",
@@ -78,8 +70,8 @@ Return ONLY valid JSON, no extra text, no markdown fences:
 Rules:
 - tone must be EXACTLY one of: {", ".join(VALID_TONES)}
 - traits must be 2-4 items chosen ONLY from: {", ".join(VALID_TRAITS)}
-- Every field should feel like it was written for THIS specific thing, not a generic pet
-- opening_message should be 1-3 sentences. It can include *italicised* scene-setting. It should not be a greeting — it should drop you straight into the character."""
+- Every field should feel written specifically for THIS thing, not a generic pet"""
+
 
 APPEARANCE_PROMPT = f"""Look at this image. Describe this thing as if it were a virtual pet — but do it with genuine creative commitment. Avoid the obvious. Avoid cute. Find the weird angle.
 
@@ -157,7 +149,7 @@ def _image_to_base64(image_bytes: bytes) -> tuple[str, str]:
 
 def _call_openrouter_vision(image_b64: str, media_type: str, prompt: str) -> dict:
     """
-    Call openrouter/healer-alpha via OpenRouter and return parsed JSON dict.
+    Call openrouter model  via OpenRouter and return parsed JSON dict.
     Reads OPENROUTER_API_KEY from the environment.
     """
     response = requests.post(
@@ -167,7 +159,7 @@ def _call_openrouter_vision(image_b64: str, media_type: str, prompt: str) -> dic
             "Content-Type": "application/json",
         },
         data=json.dumps({
-            "model": "openrouter/healer-alpha",
+            "model": "xiaomi/mimo-v2.5",
             "messages": [
                 {
                     "role": "user",
@@ -180,6 +172,8 @@ def _call_openrouter_vision(image_b64: str, media_type: str, prompt: str) -> dic
         }),
         timeout=30,
     )
+    print("OpenRouter status:", response.status_code)
+    #print("OpenRouter response:", response.text)  
     response.raise_for_status()
     raw = response.json()["choices"][0]["message"]["content"].strip()
     raw = re.sub(r"```(?:json)?|```", "", raw).strip()
@@ -195,13 +189,20 @@ def _call_openrouter_text(prompt: str) -> str:
             "Content-Type": "application/json",
         },
         data=json.dumps({
-            "model": "openrouter/healer-alpha",
+            "model": "xiaomi/mimo-v2.5",
             "messages": [{"role": "user", "content": prompt}],
         }),
         timeout=20,
     )
     response.raise_for_status()
     return response.json()["choices"][0]["message"]["content"].strip()
+
+
+def _safe_str(val) -> str:
+    """Coerce a value to a clean string, handling lists returned by some models."""
+    if isinstance(val, list):
+        return ', '.join(str(v) for v in val).strip()
+    return (val or '').strip()
 
 
 def _sanitise_stat_reactions(raw: dict) -> dict:
@@ -218,13 +219,12 @@ def _sanitise_stat_reactions(raw: dict) -> dict:
         result[stat] = {}
         stat_data = raw.get(stat, {}) if isinstance(raw, dict) else {}
         for bucket in buckets:
-            val = (stat_data.get(bucket) or "").strip()
-            result[stat][bucket] = val
+            result[stat][bucket] = _safe_str(stat_data.get(bucket))
     return result
 
 
 def _sanitise_personality(data: dict) -> dict:
-    tone = (data.get("tone") or "").strip().lower()
+    tone = _safe_str(data.get("tone")).lower()
     if tone not in VALID_TONES:
         tone = "neutral"
 
@@ -234,28 +234,22 @@ def _sanitise_personality(data: dict) -> dict:
     traits = [t.strip().lower() for t in raw_traits if t.strip().lower() in VALID_TRAITS][:4]
 
     return {
-        "self_concept":   (data.get("self_concept") or "").strip(),
+        "self_concept":   _safe_str(data.get("self_concept")),
         "tone":           tone,
         "traits":         traits,
-        "appearance":     (data.get("appearance") or "").strip(),
-        "backstory":      (data.get("backstory") or "").strip(),
-        "quirks":         (data.get("quirks") or "").strip(),
-        "likes":          (data.get("likes") or "").strip(),
-        "dislikes":       (data.get("dislikes") or "").strip(),
-        "opening_message": (data.get("opening_message") or "").strip(),
         "stat_reactions": _sanitise_stat_reactions(data.get("stat_reactions") or {}),
     }
 
 
 def _sanitise_appearance(data: dict) -> dict:
     return {
-        "appearance":     (data.get("appearance") or "").strip(),
-        "backstory":      (data.get("backstory") or "").strip(),
-        "quirks":         (data.get("quirks") or "").strip(),
-        "likes":          (data.get("likes") or "").strip(),
-        "dislikes":       (data.get("dislikes") or "").strip(),
-        "opening_message": (data.get("opening_message") or "").strip(),
-        "stat_reactions": _sanitise_stat_reactions(data.get("stat_reactions") or {}),
+        "appearance":      _safe_str(data.get("appearance")),
+        "backstory":       _safe_str(data.get("backstory")),
+        "quirks":          _safe_str(data.get("quirks")),
+        "likes":           _safe_str(data.get("likes")),
+        "dislikes":        _safe_str(data.get("dislikes")),
+        "opening_message": _safe_str(data.get("opening_message")),
+        "stat_reactions":  _sanitise_stat_reactions(data.get("stat_reactions") or {}),
     }
 
 

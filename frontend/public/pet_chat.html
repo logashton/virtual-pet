@@ -125,6 +125,12 @@
         .btn-regen { background: #24242d; border: 1px solid #3b3b47; color: #c9cbe0; border-radius: 6px; }
         .btn-regen:hover { background: #2f3040; }
         .keywords-hint { color: #9499b2; }
+        .model-toggle-row { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+        .model-toggle-label { font-size: 0.75rem; color: #9499b2; }
+        .model-toggle { display: flex; border: 1px solid #3b3b47; border-radius: 6px; overflow: hidden; }
+        .model-toggle button { padding: 3px 10px; font-size: 0.73rem; border: none; background: #24242d; color: #9499b2; cursor: pointer; transition: background 0.15s, color 0.15s; }
+        .model-toggle button.active { background: #3f3f68; color: #d6d7f2; }
+        .model-toggle button:hover:not(.active) { background: #2e2e3d; color: #c4c6db; }
         .btn-secondary { background: #24242d; border: 1px solid #5f5f98; color: #cfd1ed; border-radius: 8px; }
         .btn-secondary:hover { background: #2e2e3d; }
         .modal { background: #1f1f27; border: 1px solid #353546; color: #f0f0f6; border-radius: 12px; }
@@ -198,6 +204,13 @@
                 <p class="keywords-hint" id="keywords-hint" style="display:none;">
                     Tip: saying "feed", "play", "bath", or "rest" in chat also triggers stat changes.
                 </p>
+                <div class="model-toggle-row">
+                    <span class="model-toggle-label">Model:</span>
+                    <div class="model-toggle">
+                        <button id="model-btn-hf" class="active" title="DeepSeek via HuggingFace API">DeepSeek</button>
+                        <button id="model-btn-local" title="Local DistilGPT2 model">Local</button>
+                    </div>
+                </div>
                 <div id="summarize-row">
                     <button class="btn-regen" id="btn-summarize">📝 Save conversation summary</button>
                     <button class="btn-regen" id="btn-view-summary" style="margin-left:4px;">🔍 View summary</button>
@@ -537,7 +550,7 @@
         fetch('/chat/api/' + PET_ID + '/', {
             method: 'POST',
             headers: authHeaders(),
-            body: JSON.stringify({ regenerate: true, session_id: sessionId })
+            body: JSON.stringify({ regenerate: true, session_id: sessionId, model_preference: modelPreference })
         })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
             .then(function (res) {
@@ -613,6 +626,22 @@
     }
 
     // ── Send message ──────────────────────────────────────────────────────────
+    // ── Model preference ─────────────────────────────────────────────────────
+    var modelPreference = localStorage.getItem('chatModelPreference') || 'hf';
+
+    function setModelPreference(pref) {
+        modelPreference = pref;
+        localStorage.setItem('chatModelPreference', pref);
+        document.getElementById('model-btn-hf').classList.toggle('active', pref === 'hf');
+        document.getElementById('model-btn-local').classList.toggle('active', pref === 'local');
+    }
+
+    // Restore saved preference on load
+    setModelPreference(modelPreference);
+
+    document.getElementById('model-btn-hf').addEventListener('click', function () { setModelPreference('hf'); });
+    document.getElementById('model-btn-local').addEventListener('click', function () { setModelPreference('local'); });
+
     function sendMessage(text, actionKey) {
         if (isBusy || !text.trim()) return;
         isBusy = true;
@@ -621,7 +650,7 @@
         appendMsg('user', text);
         document.getElementById('chat-input').value = '';
 
-        var body = { message: text };
+        var body = { message: text, model_preference: modelPreference };
         if (sessionId) body.session_id = sessionId;
         if (actionKey) body.action = actionKey;
 
