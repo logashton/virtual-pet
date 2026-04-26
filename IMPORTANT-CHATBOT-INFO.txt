@@ -1,0 +1,16 @@
+THE MODELS ARE TOO FAT FOR GITHUB :(
+
+VERY SAD
+
+They're too fat for GitHub :(
+
+Just ensure to add the model as "primary-model" in backend/chat/ai-models/
+
+In primary-model (the actual version), there is 
+
+- config.json
+- generation_config.json
+- model.safetensors
+- special_tokens_map.json
+- tokenizer.model
+- tokenizer_config
