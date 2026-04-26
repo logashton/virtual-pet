@@ -42,7 +42,7 @@
         .upload-zone.has-image .upload-placeholder { display: none; }
         .upload-placeholder { display: flex; flex-direction: column; align-items: center; gap: 8px; color: #858aa3; font-size: 0.82rem; pointer-events: none; }
         .upload-placeholder svg { width: 32px; height: 32px; }
-        .upload-change { position: absolute; bottom: 8px; right: 8px; padding: 4px 10px; background: rgba(0,0,0,0.6); color: #fff; border: none; border-radius: 6px; font-size: 0.76rem; cursor: pointer; display: none; }
+        .upload-change { position: absolute; bottom: 8px; right: 8px; padding: 4px 10px; background: rgba(0,0,0,0.6); color: #fff; border: none; border-radius: 6px; font-size: 0.76rem; cursor: pointer; display: none; z-index: 20; }
         .upload-zone.has-image .upload-change { display: block; }
         .tone-grid { display: flex; flex-wrap: wrap; gap: 7px; }
         .tone-btn { padding: 5px 12px; border-radius: 16px; border: 1.5px solid #3b3b47; font-size: 0.8rem; cursor: pointer; background: #24242d; color: #c4c6db; }
@@ -113,7 +113,7 @@
             border-radius: 4px;
             text-align: center;
             font-size: 0.8rem;
-            z-index: 10;
+            z-index: 15;
         }
         .upload-message.success {
             background: #28a745;
@@ -219,9 +219,10 @@
         </div>
     </div>
 
-    <!-- Results will be displayed here -->
+    <!-- Results are displayed here -->
     <div id="segmentation-results" style="display: none;">
-        <h2>Segmentation Results</h2>
+        <h2 style="color: #f5f5f9; margin-top: 20px;">Segmentation Results</h2>
+        <p class="hint">The AI has separated your object from the background. Review the results below.</p>
         <div class="results-grid">
             <div class="result-item">
                 <h3>Original</h3>
@@ -244,9 +245,10 @@
         <button id="use-image-btn" class="btn-primary">
             Use This Image for My Pet
         </button>
+        <p class="hint" style="text-align: center; margin-top: 8px;">Click "Use This Image" to confirm, then fill out the rest of the form</p>
     </div>
 
-        <!-- ── Appearance section ── -->
+    <!-- ── Appearance section ── -->
     <div class="section-header">
         <div class="section-title">Appearance &amp; character</div>
         <button type="button" class="btn-ai-generate" id="btn-gen-appearance" title="Upload a photo to enable" disabled>
@@ -255,14 +257,14 @@
         </button>
     </div>
 
-        <div class="suggestion-banner" id="appearance-suggestion">
-            <strong>✨ AI suggestion — review before applying</strong>
-            <div class="suggestion-preview" id="appearance-preview"></div>
-            <div class="suggestion-actions">
-                <button type="button" class="btn-apply" id="btn-apply-appearance">Apply suggestions</button>
-                <button type="button" class="btn-dismiss" id="btn-dismiss-appearance">Dismiss</button>
-            </div>
+    <div class="suggestion-banner" id="appearance-suggestion">
+        <strong>✨ AI suggestion — review before applying</strong>
+        <div class="suggestion-preview" id="appearance-preview"></div>
+        <div class="suggestion-actions">
+            <button type="button" class="btn-apply" id="btn-apply-appearance">Apply suggestions</button>
+            <button type="button" class="btn-dismiss" id="btn-dismiss-appearance">Dismiss</button>
         </div>
+    </div>
 
     <div class="form-group">
         <label for="pet-appearance">Physical description</label>
@@ -287,7 +289,7 @@
         </div>
     </div>
 
-        <!-- ── Personality section ── -->
+    <!-- ── Personality section ── -->
     <div class="section-header">
         <div class="section-title">Personality</div>
         <button type="button" class="btn-ai-generate" id="btn-gen-personality" title="Upload a photo to enable" disabled>
@@ -296,14 +298,14 @@
         </button>
     </div>
 
-        <div class="suggestion-banner" id="personality-suggestion">
-            <strong>✨ AI suggestion — review before applying</strong>
-            <div class="suggestion-preview" id="personality-preview"></div>
-            <div class="suggestion-actions">
-                <button type="button" class="btn-apply" id="btn-apply-personality">Apply suggestions</button>
-                <button type="button" class="btn-dismiss" id="btn-dismiss-personality">Dismiss</button>
-            </div>
+    <div class="suggestion-banner" id="personality-suggestion">
+        <strong>✨ AI suggestion — review before applying</strong>
+        <div class="suggestion-preview" id="personality-preview"></div>
+        <div class="suggestion-actions">
+            <button type="button" class="btn-apply" id="btn-apply-personality">Apply suggestions</button>
+            <button type="button" class="btn-dismiss" id="btn-dismiss-personality">Dismiss</button>
         </div>
+    </div>
 
     <div class="form-group">
         <label>Tone</label>
@@ -335,11 +337,12 @@
 
 <script>
 (function () {
-    // Global variables
+    // ==================== GLOBAL VARIABLES ====================
     var token = localStorage.getItem('authToken');
     var importedGlbBase64 = null;
     var uploadedFile = null;
-    var segmentationData = null;  // Store segmentation results here
+    var segmentationData = null;  // Stores segmentation results
+    var imageSelected = false;     // Tracks if user has confirmed the image
     
     // Helper functions
     function authHeaders(extra) {
@@ -350,8 +353,10 @@
 
     function setStatus(msg, type) {
         var el = document.getElementById('create-status');
-        el.textContent = msg;
-        el.className = 'status-msg' + (type ? ' ' + type : '');
+        if (el) {
+            el.textContent = msg;
+            el.className = 'status-msg' + (type ? ' ' + type : '');
+        }
     }
 
     function getCookie(name) {
@@ -369,7 +374,7 @@
         return cookieValue;
     }
 
-    // Only treat 3D model as "from creator" when we actually came from the 3D creator (URL has from3d=1)
+    // Only treats 3D models as "from creator" when we actually came from the 3D creator
     var from3d = /[?&]from3d=1/.test(window.location.search || '');
     if (from3d) {
         try {
@@ -391,9 +396,18 @@
         setStatus('You must be logged in to create a pet.', 'error');
     }
 
-    // ==================== IMAGE SEGMENTATION ====================
+    // Enables the create button when name exists AND image is selected
+    function updateCreateButton() {
+        var name = document.getElementById('pet-name').value.trim();
+        var btn = document.getElementById('btn-create');
+        if (btn) {
+            btn.disabled = !name || !token || !imageSelected;
+        }
+    }
     
-    // ImageSegmenter class
+    document.getElementById('pet-name').addEventListener('input', updateCreateButton);
+
+    // ==================== IMAGE SEGMENTATION ====================
     class ImageSegmenter {
         constructor() {
             this.apiUrl = '/api/segment/';
@@ -413,6 +427,7 @@
         initEventListeners() {
             console.log('Initializing event listeners');
             
+            // Files the input change
             this.photoInput.addEventListener('change', (e) => {
                 console.log('File input changed');
                 if (e.target.files && e.target.files[0]) {
@@ -420,18 +435,19 @@
                 }
             });
             
+            // Drags and drops
             this.uploadZone.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                this.uploadZone.classList.add('dragover');
+                this.uploadZone.classList.add('drag-over');
             });
             
             this.uploadZone.addEventListener('dragleave', () => {
-                this.uploadZone.classList.remove('dragover');
+                this.uploadZone.classList.remove('drag-over');
             });
             
             this.uploadZone.addEventListener('drop', (e) => {
                 e.preventDefault();
-                this.uploadZone.classList.remove('dragover');
+                this.uploadZone.classList.remove('drag-over');
                 
                 if (e.dataTransfer.files && e.dataTransfer.files[0]) {
                     console.log('File dropped');
@@ -440,12 +456,14 @@
                 }
             });
             
+            // Clicks on zone (but not on change button)
             this.uploadZone.addEventListener('click', (e) => {
-                if (e.target !== this.uploadChange) {
+                if (e.target !== this.uploadChange && e.target !== this.uploadChange.querySelector('*')) {
                     this.photoInput.click();
                 }
             });
             
+            // Changes the button
             this.uploadChange.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.photoInput.click();
@@ -460,16 +478,17 @@
                 return;
             }
             
-            // Store the file globally
+            // Stores the file globally
             uploadedFile = file;
+            imageSelected = false;  // Reset until user confirms
             
             const reader = new FileReader();
             reader.onload = (e) => {
                 this.photoPreview.src = e.target.result;
                 this.photoPreview.style.display = 'block';
-                this.uploadZone.querySelector('.upload-placeholder').style.display = 'none';
-                this.uploadChange.style.display = 'block';
+                this.uploadZone.classList.add('has-image');
                 
+                // Uploads and segments
                 this.uploadImage(file);
             };
             reader.readAsDataURL(file);
@@ -502,17 +521,6 @@
                 
                 if (data.success) {
                     this.handleSuccess(data.data);
-                    
-                    // Enable generate buttons
-                    ['btn-gen-appearance', 'btn-gen-personality'].forEach(function (id) {
-                        var btn = document.getElementById(id);
-                        if (btn) {
-                            btn.disabled = false;
-                            btn.classList.add('enabled');
-                            btn.title = '';
-                        }
-                    });
-                    
                 } else {
                     this.handleError(data.error || 'Unknown error');
                 }
@@ -528,19 +536,25 @@
         handleSuccess(result) {
             console.log('Segmentation successful:', result);
             
-            // Store segmentation data globally
+            // Stores segmentation data globally
             segmentationData = result;
             
             // Update preview images
-            document.getElementById('result-original').src = result.original_url;
-            document.getElementById('result-mask').src = result.mask_url;
-            document.getElementById('result-overlay').src = result.overlay_url;
-            document.getElementById('result-cutout').src = result.cutout_url;
+            var originalImg = document.getElementById('result-original');
+            var maskImg = document.getElementById('result-mask');
+            var overlayImg = document.getElementById('result-overlay');
+            var cutoutImg = document.getElementById('result-cutout');
             
-            // Show results
-            document.getElementById('segmentation-results').style.display = 'block';
+            if (originalImg) originalImg.src = result.original_url;
+            if (maskImg) maskImg.src = result.mask_url;
+            if (overlayImg) overlayImg.src = result.overlay_url;
+            if (cutoutImg) cutoutImg.src = result.cutout_url;
             
-            this.showMessage('Image processed successfully!', 'success');
+            // Shows results
+            var resultsDiv = document.getElementById('segmentation-results');
+            if (resultsDiv) resultsDiv.style.display = 'block';
+            
+            this.showMessage('Image processed successfully! Review the cutout and click "Use This Image" to confirm.', 'success');
         }
         
         handleError(error) {
@@ -566,12 +580,12 @@
                         msgEl.remove();
                     }
                 }, 300);
-            }, 3000);
+            }, 5000);  // Show for 5 seconds
         }
     }
 
-    // Initialize ImageSegmenter
-    document.addEventListener('DOMContentLoaded', () => {
+    // Initializes ImageSegmenter when DOM loads
+    document.addEventListener('DOMContentLoaded', function() {
         console.log('DOM loaded, checking for upload zone');
         if (document.getElementById('upload-zone')) {
             console.log('Upload zone found, initializing ImageSegmenter');
@@ -581,68 +595,40 @@
         }
     });
 
-    // Handle "Use This Image" button click
-    document.getElementById('use-image-btn')?.addEventListener('click', function() {
-        if (!segmentationData) {
-            alert('No image has been processed yet. Please upload an image first.');
-            return;
-        }
-        
-        // Just confirm that the image is selected - don't create the pet yet
-        setStatus('Image selected! Fill in the details and click Create.', 'success');
-        
-        // You could optionally highlight the create button
-        document.getElementById('btn-create').scrollIntoView({ behavior: 'smooth' });
-    });
-
-    // ==================== EXISTING CODE (preserved) ====================
-    
-    // Photo upload handler (kept for compatibility with existing code)
-    var zone = document.getElementById('upload-zone');
-    var photoInput = document.getElementById('photo-input');
-    var preview = document.getElementById('photo-preview');
-
-    photoInput.addEventListener('change', function () {
-        if (this.files && this.files[0]) {
-            // This will be handled by ImageSegmenter class
-        }
-    });
-    
-    document.getElementById('upload-change').addEventListener('click', function (e) {
-        e.stopPropagation(); photoInput.click();
-    });
-    
-    zone.addEventListener('dragover',  function (e) { e.preventDefault(); zone.classList.add('drag-over'); });
-    zone.addEventListener('dragleave', function ()  { zone.classList.remove('drag-over'); });
-    zone.addEventListener('drop', function (e) {
-        e.preventDefault(); zone.classList.remove('drag-over');
-        if (e.dataTransfer.files[0]) {
-            // This will be handled by ImageSegmenter class
-        }
-    });
-
-    // Generate buttons
-        if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-    });
-
-    function handleFile(file) {
-        if (!file.type.startsWith('image/')) { setStatus('Please upload an image file.', 'error'); return; }
-        uploadedFile = file;
-        var reader = new FileReader();
-        reader.onload = function (e) {
-            preview.src = e.target.result;
-            zone.classList.add('has-image');
+    // Handles the "Use This Image" button click
+    var useImageBtn = document.getElementById('use-image-btn');
+    if (useImageBtn) {
+        useImageBtn.addEventListener('click', function() {
+            if (!segmentationData) {
+                alert('No image has been processed yet. Please upload an image first.');
+                return;
+            }
+            
+            // Mark image as selected
+            imageSelected = true;
+            
+            // Enables generate buttons
             ['btn-gen-appearance', 'btn-gen-personality'].forEach(function (id) {
                 var btn = document.getElementById(id);
-                btn.disabled = false;
-                btn.classList.add('enabled');
-                btn.title = '';
+                if (btn) {
+                    btn.disabled = false;
+                    btn.classList.add('enabled');
+                    btn.title = '';
+                }
             });
-        };
-        reader.readAsDataURL(file);
+            
+            setStatus('Image confirmed! Fill in the details and click Create.', 'success');
+            updateCreateButton();
+            
+            // Scroll to create button
+            document.getElementById('btn-create').scrollIntoView({ behavior: 'smooth' });
+            
+            // Optionally hides results section after confirmation
+            // document.getElementById('segmentation-results').style.display = 'none';
+        });
     }
 
-    // ── Stat Reactions ────────────────────────────────────────────────────────
+    // ==================== STAT REACTIONS ====================
     var SR_STATS         = ['hunger','energy','happiness','cleanliness','health'];
     var SR_STAT_LABELS   = {hunger:'Hunger',energy:'Energy',happiness:'Happiness',cleanliness:'Cleanliness',health:'Health'};
     var SR_BUCKET_LABELS = {critical:'🔴 Critical',low:'🟡 Low',high:'🟢 High'};
@@ -663,15 +649,22 @@
     var srOpen  = false;
     var srBuilt = false;
 
-    document.getElementById('sr-toggle').addEventListener('click', function () {
-        srOpen = !srOpen;
-        document.getElementById('stat-reactions-body').style.display = srOpen ? 'block' : 'none';
-        document.getElementById('sr-chevron').style.transform = srOpen ? 'rotate(180deg)' : '';
-        if (srOpen && !srBuilt) { buildSrFields(); srBuilt = true; }
-    });
+    // Stat reactions toggle (if element exists)
+    var srToggle = document.getElementById('sr-toggle');
+    if (srToggle) {
+        srToggle.addEventListener('click', function () {
+            srOpen = !srOpen;
+            var srBody = document.getElementById('stat-reactions-body');
+            var srChevron = document.getElementById('sr-chevron');
+            if (srBody) srBody.style.display = srOpen ? 'block' : 'none';
+            if (srChevron) srChevron.style.transform = srOpen ? 'rotate(180deg)' : '';
+            if (srOpen && !srBuilt) { buildSrFields(); srBuilt = true; }
+        });
+    }
 
     function buildSrFields() {
         var container = document.getElementById('stat-reactions-body');
+        if (!container) return;
         container.innerHTML = '';
         SR_STATS.forEach(function (stat) {
             var section = document.createElement('div');
@@ -703,8 +696,10 @@
         if (!srBuilt) buildSrFields();
         if (!srOpen) {
             srOpen = true;
-            document.getElementById('stat-reactions-body').style.display = 'block';
-            document.getElementById('sr-chevron').style.transform = 'rotate(180deg)';
+            var srBody = document.getElementById('stat-reactions-body');
+            var srChevron = document.getElementById('sr-chevron');
+            if (srBody) srBody.style.display = 'block';
+            if (srChevron) srChevron.style.transform = 'rotate(180deg)';
         }
     }
 
@@ -727,44 +722,33 @@
         return result;
     }
 
-    // ── AI generation ─────────────────────────────────────────────────────────
+    // ==================== AI GENERATION ====================
     var lastAppearanceSuggestion  = null;
     var lastPersonalitySuggestion = null;
 
     function callGenerateAPI(mode, onSuccess) {
         if (!token) { setStatus('You must be logged in to use AI generation.', 'error'); return; }
-        if (mode !== 'opening' && !uploadedFile) return;
+        if (!imageSelected) { setStatus('Please upload and confirm an image first.', 'error'); return; }
 
         var btnId = mode === 'personality' ? 'btn-gen-personality'
                   : mode === 'appearance'  ? 'btn-gen-appearance'
                   : 'btn-gen-opening';
         var btn = document.getElementById(btnId);
-        btn.disabled = true;
-        btn.classList.add('loading');
-        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c-1 3-4 5-4 8a4 4 0 0 0 8 0c0-3-3-5-4-8z"/><path d="M12 15v6M9 18h6"/></svg> Generating…';
-
-        var fetchOpts;
-        if (mode === 'opening') {
-            // Text-only — send personality context as form fields
-            var form = new FormData();
-            form.append('mode', 'opening');
-            var petName     = document.getElementById('pet-name').value.trim();
-            var selfConcept = document.getElementById('pet-species').value.trim();
-            var backstory   = document.getElementById('pet-backstory').value.trim();
-            if (petName)     form.append('pet_name',     petName);
-            if (selfConcept) form.append('self_concept', selfConcept);
-            if (selectedTone) form.append('tone',         selectedTone);
-            if (selectedTraits.length) form.append('traits', selectedTraits.join(', '));
-            if (backstory)   form.append('backstory',    backstory);
-            fetchOpts = { method: 'POST', headers: { 'Authorization': 'Token ' + token }, body: form };
-        } else {
-            var form = new FormData();
-            form.append('image', uploadedFile);
-            form.append('mode', mode);
-            fetchOpts = { method: 'POST', headers: { 'Authorization': 'Token ' + token }, body: form };
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.add('loading');
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c-1 3-4 5-4 8a4 4 0 0 0 8 0c0-3-3-5-4-8z"/><path d="M12 15v6M9 18h6"/></svg> Generating…';
         }
 
-        fetch('/api/generate-personality/', fetchOpts)
+        var form = new FormData();
+        form.append('image', uploadedFile);
+        form.append('mode', mode);
+
+        fetch('/api/generate-personality/', {
+            method: 'POST',
+            headers: { 'Authorization': 'Token ' + token },
+            body: form
+        })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
             .then(function (res) {
                 if (!res.ok) { setStatus('Generation failed: ' + (res.data.detail || 'Unknown error'), 'error'); return; }
@@ -772,12 +756,9 @@
             })
             .catch(function () { setStatus('Network error during generation.', 'error'); })
             .finally(function () {
-                btn.disabled = false;
-                btn.classList.remove('loading');
-                if (mode === 'opening') {
-                    btn.classList.add('always-enabled');
-                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c-1 3-4 5-4 8a4 4 0 0 0 8 0c0-3-3-5-4-8z"/><path d="M12 15v6M9 18h6"/></svg> Generate';
-                } else {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.classList.remove('loading');
                     btn.classList.add('enabled');
                     btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c-1 3-4 5-4 8a4 4 0 0 0 8 0c0-3-3-5-4-8z"/><path d="M12 15v6M9 18h6"/></svg> Generate from photo';
                 }
@@ -809,94 +790,104 @@
         return lines.join('\n');
     }
 
-    // Appearance generate
-    document.getElementById('btn-gen-appearance').addEventListener('click', function () {
-        callGenerateAPI('appearance', function (data) {
-            lastAppearanceSuggestion = data;
-            document.getElementById('appearance-preview').textContent = formatAppearancePreview(data);
-            document.getElementById('appearance-suggestion').classList.add('visible');
-            document.getElementById('appearance-suggestion').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Generates buttons
+    var genAppearanceBtn = document.getElementById('btn-gen-appearance');
+    if (genAppearanceBtn) {
+        genAppearanceBtn.addEventListener('click', function () {
+            callGenerateAPI('appearance', function (data) {
+                lastAppearanceSuggestion = data;
+                var previewEl = document.getElementById('appearance-preview');
+                var suggestionEl = document.getElementById('appearance-suggestion');
+                if (previewEl) previewEl.textContent = formatAppearancePreview(data);
+                if (suggestionEl) suggestionEl.classList.add('visible');
+                if (suggestionEl) suggestionEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
         });
-    });
+    }
 
-    // Personality generate
-    
-    document.getElementById('btn-gen-personality').addEventListener('click', function () {
-        callGenerateAPI('personality', function (data) {
-            lastPersonalitySuggestion = data;
-            document.getElementById('personality-preview').textContent = formatPersonalityPreview(data);
-            document.getElementById('personality-suggestion').classList.add('visible');
-            document.getElementById('personality-suggestion').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    var genPersonalityBtn = document.getElementById('btn-gen-personality');
+    if (genPersonalityBtn) {
+        genPersonalityBtn.addEventListener('click', function () {
+            callGenerateAPI('personality', function (data) {
+                lastPersonalitySuggestion = data;
+                var previewEl = document.getElementById('personality-preview');
+                var suggestionEl = document.getElementById('personality-suggestion');
+                if (previewEl) previewEl.textContent = formatPersonalityPreview(data);
+                if (suggestionEl) suggestionEl.classList.add('visible');
+                if (suggestionEl) suggestionEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
         });
-    });
+    }
 
-    // Opening message generate
-    document.getElementById('btn-gen-opening').addEventListener('click', function () {
-        callGenerateAPI('opening', function (data) {
-            if (data.opening_message) {
-                document.getElementById('pet-opening-message').value = data.opening_message;
+    // Applies appearance
+    var applyAppearanceBtn = document.getElementById('btn-apply-appearance');
+    if (applyAppearanceBtn) {
+        applyAppearanceBtn.addEventListener('click', function () {
+            if (!lastAppearanceSuggestion) return;
+            var d = lastAppearanceSuggestion;
+            if (d.appearance) document.getElementById('pet-appearance').value = d.appearance;
+            if (d.backstory)  document.getElementById('pet-backstory').value  = d.backstory;
+            if (d.quirks)     document.getElementById('pet-quirks').value     = d.quirks;
+            if (d.likes)      document.getElementById('pet-likes').value      = d.likes;
+            if (d.dislikes)   document.getElementById('pet-dislikes').value   = d.dislikes;
+            if (d.stat_reactions) applySrData(d.stat_reactions);
+            document.getElementById('appearance-suggestion').classList.remove('visible');
+            lastAppearanceSuggestion = null;
+        });
+    }
+
+    // Applies personality
+    var applyPersonalityBtn = document.getElementById('btn-apply-personality');
+    if (applyPersonalityBtn) {
+        applyPersonalityBtn.addEventListener('click', function () {
+            if (!lastPersonalitySuggestion) return;
+            var d = lastPersonalitySuggestion;
+            if (d.self_concept) document.getElementById('pet-species').value = d.self_concept;
+            if (d.appearance)   document.getElementById('pet-appearance').value = d.appearance;
+            if (d.backstory)    document.getElementById('pet-backstory').value  = d.backstory;
+            if (d.quirks)       document.getElementById('pet-quirks').value     = d.quirks;
+            if (d.likes)        document.getElementById('pet-likes').value      = d.likes;
+            if (d.dislikes)     document.getElementById('pet-dislikes').value   = d.dislikes;
+            if (d.tone) {
+                var selectedTone = d.tone;
+                document.querySelectorAll('.tone-btn').forEach(function (b) {
+                    b.classList.toggle('active', b.textContent.toLowerCase() === selectedTone);
+                });
             }
+            if (d.traits && d.traits.length) {
+                var selectedTraits = [];
+                document.querySelectorAll('.trait-chip').forEach(function (chip) { chip.classList.remove('active'); });
+                d.traits.forEach(function (t) {
+                    t = t.trim().toLowerCase();
+                    selectedTraits.push(t);
+                    var chip = document.querySelector('.trait-chip[data-trait="' + t + '"]');
+                    if (chip) chip.classList.add('active');
+                });
+            }
+            if (d.stat_reactions) applySrData(d.stat_reactions);
+            document.getElementById('personality-suggestion').classList.remove('visible');
+            lastPersonalitySuggestion = null;
         });
-    });
+    }
 
-    // Apply appearance
-    document.getElementById('btn-apply-appearance').addEventListener('click', function () {
-        if (!lastAppearanceSuggestion) return;
-        var d = lastAppearanceSuggestion;
-        if (d.appearance) document.getElementById('pet-appearance').value = d.appearance;
-        if (d.backstory)  document.getElementById('pet-backstory').value  = d.backstory;
-        if (d.quirks)     document.getElementById('pet-quirks').value     = d.quirks;
-        if (d.likes)      document.getElementById('pet-likes').value      = d.likes;
-        if (d.dislikes)   document.getElementById('pet-dislikes').value   = d.dislikes;
-        if (d.opening_message) document.getElementById('pet-opening-message').value = d.opening_message;
-        if (d.stat_reactions) applySrData(d.stat_reactions);
-        document.getElementById('appearance-suggestion').classList.remove('visible');
-        lastAppearanceSuggestion = null;
-    });
+    // Dismisses banners
+    var dismissAppearanceBtn = document.getElementById('btn-dismiss-appearance');
+    if (dismissAppearanceBtn) {
+        dismissAppearanceBtn.addEventListener('click', function () {
+            document.getElementById('appearance-suggestion').classList.remove('visible');
+            lastAppearanceSuggestion = null;
+        });
+    }
+    
+    var dismissPersonalityBtn = document.getElementById('btn-dismiss-personality');
+    if (dismissPersonalityBtn) {
+        dismissPersonalityBtn.addEventListener('click', function () {
+            document.getElementById('personality-suggestion').classList.remove('visible');
+            lastPersonalitySuggestion = null;
+        });
+    }
 
-    // Apply personality
-    document.getElementById('btn-apply-personality').addEventListener('click', function () {
-        if (!lastPersonalitySuggestion) return;
-        var d = lastPersonalitySuggestion;
-        if (d.self_concept) document.getElementById('pet-species').value = d.self_concept;
-        if (d.appearance)   document.getElementById('pet-appearance').value = d.appearance;
-        if (d.backstory)    document.getElementById('pet-backstory').value  = d.backstory;
-        if (d.quirks)       document.getElementById('pet-quirks').value     = d.quirks;
-        if (d.likes)        document.getElementById('pet-likes').value      = d.likes;
-        if (d.dislikes)     document.getElementById('pet-dislikes').value   = d.dislikes;
-        if (d.opening_message) document.getElementById('pet-opening-message').value = d.opening_message;
-        if (d.tone) {
-            selectedTone = d.tone;
-            document.querySelectorAll('.tone-btn').forEach(function (b) {
-                b.classList.toggle('active', b.textContent.toLowerCase() === selectedTone);
-            });
-        }
-        if (d.traits && d.traits.length) {
-            selectedTraits = [];
-            document.querySelectorAll('.trait-chip').forEach(function (chip) { chip.classList.remove('active'); });
-            d.traits.forEach(function (t) {
-                t = t.trim().toLowerCase();
-                selectedTraits.push(t);
-                var chip = document.querySelector('.trait-chip[data-trait="' + t + '"]');
-                if (chip) chip.classList.add('active');
-            });
-        }
-        if (d.stat_reactions) applySrData(d.stat_reactions);
-        document.getElementById('personality-suggestion').classList.remove('visible');
-        lastPersonalitySuggestion = null;
-    });
-
-    // Dismiss banners
-    document.getElementById('btn-dismiss-appearance').addEventListener('click', function () {
-        document.getElementById('appearance-suggestion').classList.remove('visible');
-        lastAppearanceSuggestion = null;
-    });
-    document.getElementById('btn-dismiss-personality').addEventListener('click', function () {
-        document.getElementById('personality-suggestion').classList.remove('visible');
-        lastPersonalitySuggestion = null;
-    });
-
-    // ── Visibility ────────────────────────────────────────────────────────────
+    // ==================== VISIBILITY ====================
     var selectedVis = 'private';
     document.querySelectorAll('.vis-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -905,7 +896,7 @@
         });
     });
 
-    // ── Tone ──────────────────────────────────────────────────────────────────
+    // ==================== TONE ====================
     var TONES = ['neutral','snarky','gentle','dramatic','anxious','stoic','cheerful','sad','aggressive','mysterious'];
     var selectedTone = '';
     TONES.forEach(function (t) {
@@ -918,10 +909,11 @@
                 b.classList.toggle('active', b.textContent.toLowerCase() === selectedTone);
             });
         });
-        document.getElementById('tone-grid').appendChild(btn);
+        var toneGrid = document.getElementById('tone-grid');
+        if (toneGrid) toneGrid.appendChild(btn);
     });
 
-    // ── Traits ────────────────────────────────────────────────────────────────
+    // ==================== TRAITS ====================
     var TRAITS = ['curious','lazy','loyal','mischievous','wise','cowardly','brave','jealous','affectionate','aloof','greedy','generous','paranoid','optimistic','pessimistic'];
     var selectedTraits = [];
     TRAITS.forEach(function (t) {
@@ -937,7 +929,8 @@
                 chip.classList.add('active');
             }
         });
-        document.getElementById('traits-wrap').appendChild(chip);
+        var traitsWrap = document.getElementById('traits-wrap');
+        if (traitsWrap) traitsWrap.appendChild(chip);
     });
 
     function addCustomTrait(val) {
@@ -952,23 +945,26 @@
             if (idx >= 0) selectedTraits.splice(idx, 1);
             chip.parentNode.removeChild(chip);
         });
-        document.getElementById('traits-wrap').appendChild(chip);
+        var traitsWrap = document.getElementById('traits-wrap');
+        if (traitsWrap) traitsWrap.appendChild(chip);
         document.getElementById('custom-trait-input').value = '';
     }
 
-    document.getElementById('btn-add-trait').addEventListener('click', function () {
-        addCustomTrait(document.getElementById('custom-trait-input').value);
-    });
+    var addTraitBtn = document.getElementById('btn-add-trait');
+    if (addTraitBtn) {
+        addTraitBtn.addEventListener('click', function () {
+            addCustomTrait(document.getElementById('custom-trait-input').value);
+        });
+    }
     
-    document.getElementById('custom-trait-input').addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault(); addCustomTrait(this.value); }
-    });
+    var customTraitInput = document.getElementById('custom-trait-input');
+    if (customTraitInput) {
+        customTraitInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); addCustomTrait(this.value); }
+        });
+    }
 
-    document.getElementById('pet-name').addEventListener('input', function () {
-        document.getElementById('btn-create').disabled = !this.value.trim() || !token;
-    });
-
-    // ── Build roleplay_prompt ─────────────────────────────────────────────────
+    // ==================== BUILD ROLEPLAY PROMPT ====================
     function buildRoleplayPrompt() {
         var parts = [];
         var age        = document.getElementById('pet-age').value.trim();
@@ -988,113 +984,117 @@
         return parts.join('\n');
     }
 
-    // ── Submit (Create Pet) - UPDATED to use segmentation data ────────────────────────────────────────────────────────────────
-    document.getElementById('btn-create').addEventListener('click', function () {
-        var name = document.getElementById('pet-name').value.trim();
-        if (!name) { setStatus('Please enter a name.', 'error'); return; }
+    // ==================== SUBMIT (Create Pet) ====================
+    var createBtn = document.getElementById('btn-create');
+    if (createBtn) {
+        createBtn.addEventListener('click', function () {
+            var name = document.getElementById('pet-name').value.trim();
+            if (!name) { setStatus('Please enter a name.', 'error'); return; }
+            if (!imageSelected) { setStatus('Please upload and confirm an image first.', 'error'); return; }
 
-        var btn = this;
-        btn.disabled = true;
-        setStatus('Creating...', '');
+            var btn = this;
+            btn.disabled = true;
+            setStatus('Creating...', '');
 
-        // First, create the pet with basic info
-        fetch('/api/pets/', {
-            method: 'POST',
-            headers: authHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ 
-                name: name, 
-                visibility: selectedVis 
-            })
-        })
-        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-        .then(function (res) {
-            if (!res.ok) throw new Error(res.data.detail || JSON.stringify(res.data));
-            var petId = res.data.id;
-            setStatus('Saving personality...', '');
-            
-            // Save personality
-            return fetch('/api/pets/' + petId + '/personality/', {
-                method: 'PATCH',
+            // Creates the pet with basic information
+            fetch('/api/pets/', {
+                method: 'POST',
                 headers: authHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({
-                    self_concept:    document.getElementById('pet-species').value.trim(),
-                    tone:            selectedTone,
-                    traits:          selectedTraits.slice(),
-                    roleplay_prompt: buildRoleplayPrompt(),
-                    opening_message: document.getElementById('pet-opening-message').value.trim(),
-                    stat_reactions:  collectStatReactions(),
+                body: JSON.stringify({ 
+                    name: name, 
+                    visibility: selectedVis 
                 })
-            }).then(function () { return petId; });
-        })
-        .then(function (petId) {
-            // Upload the original image if we have one
-            if (uploadedFile) {
-                setStatus('Uploading image...', '');
-                var form = new FormData();
-                form.append('image', uploadedFile);
-                return fetch('/api/pets/' + petId + '/upload/', {
-                    method: 'POST',
-                    headers: authHeaders({}),
-                    body: form
+            })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (res) {
+                if (!res.ok) throw new Error(res.data.detail || JSON.stringify(res.data));
+                var petId = res.data.id;
+                setStatus('Saving personality...', '');
+                
+                // Saves the personality
+                return fetch('/api/pets/' + petId + '/personality/', {
+                    method: 'PATCH',
+                    headers: authHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify({
+                        self_concept:    document.getElementById('pet-species').value.trim(),
+                        tone:            selectedTone,
+                        traits:          selectedTraits.slice(),
+                        roleplay_prompt: buildRoleplayPrompt(),
+                        opening_message: document.getElementById('pet-opening-message') ? document.getElementById('pet-opening-message').value.trim() : "",
+                        stat_reactions:  collectStatReactions(),
+                    })
                 }).then(function () { return petId; });
-            }
-            return petId;
-        })
-        .then(function (petId) {
-            // Upload segmentation results if we have them
-            if (segmentationData) {
-                setStatus('Saving segmented images...', '');
-                
-                // You might need to fetch the segmented images and upload them
-                // This depends on your backend API structure
-                var form = new FormData();
-                
-                // You can add the mask, cutout, etc. as separate fields
-                // Adjust this based on your API expectations
-                form.append('mask', segmentationData.mask);
-                form.append('cutout', segmentationData.cutout);
-                form.append('overlay', segmentationData.overlay);
-                
-                return fetch('/api/pets/' + petId + '/segmented-images/', {
-                    method: 'POST', headers: authHeaders({}), body: form
-                }).then(function () { return petId; }).catch(function(e) {
-                    console.log('Optional: segmented images upload failed', e);
-                    return petId;
-                });
-            }
-            return petId;
-        })
-        .then(function (petId) {
-            if (importedGlbBase64) {
-                setStatus('Uploading 3D model...', '');
-                var binary = atob(importedGlbBase64);
-                var len = binary.length;
-                var bytes = new Uint8Array(len);
-                for (var i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-                var blob = new Blob([bytes], { type: 'model/gltf-binary' });
-                var form = new FormData();
-                form.append('model', blob, 'pet-creator.glb');
-                return fetch('/api/pets/' + petId + '/upload-model/', {
-                    method: 'POST', headers: authHeaders({}), body: form
-                })
-                .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-                .then(function (res) {
-                    if (!res.ok) throw new Error(res.data.detail || '3D upload failed');
-                    try { window.localStorage.removeItem('petCreatorGlb'); } catch (e) {}
-                    return petId;
-                });
-            }
-            return Promise.resolve(petId);
-        })
-        .then(function (petId) {
-            setStatus('Done! Redirecting...', 'success');
-            setTimeout(function () { window.location.href = '/pets/' + petId + '/chat/'; }, 800);
-        })
-        .catch(function (err) {
-            setStatus('Error: ' + err.message, 'error');
-            btn.disabled = false;
+            })
+            .then(function (petId) {
+                // Uploads the original image
+                if (uploadedFile) {
+                    setStatus('Uploading image...', '');
+                    var form = new FormData();
+                    form.append('image', uploadedFile);
+                    return fetch('/api/pets/' + petId + '/upload/', {
+                        method: 'POST',
+                        headers: authHeaders({}),
+                        body: form
+                    }).then(function () { return petId; });
+                }
+                return petId;
+            })
+            .then(function (petId) {
+                // Upload segmentation results if we have them
+                if (segmentationData && segmentationData.cutout) {
+                    setStatus('Saving cutout image...', '');
+                    // Fetch the cutout image and upload it
+                    return fetch(segmentationData.cutout_url)
+                        .then(function(res) { return res.blob(); })
+                        .then(function(blob) {
+                            var form = new FormData();
+                            form.append('cutout', blob, 'cutout.png');
+                            return fetch('/api/pets/' + petId + '/upload-cutout/', {
+                                method: 'POST',
+                                headers: authHeaders({}),
+                                body: form
+                            });
+                        })
+                        .then(function() { return petId; })
+                        .catch(function(e) {
+                            console.log('Optional: cutout upload failed', e);
+                            return petId;
+                        });
+                }
+                return petId;
+            })
+            .then(function (petId) {
+                if (importedGlbBase64) {
+                    setStatus('Uploading 3D model...', '');
+                    var binary = atob(importedGlbBase64);
+                    var len = binary.length;
+                    var bytes = new Uint8Array(len);
+                    for (var i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+                    var blob = new Blob([bytes], { type: 'model/gltf-binary' });
+                    var form = new FormData();
+                    form.append('model', blob, 'pet-creator.glb');
+                    return fetch('/api/pets/' + petId + '/upload-model/', {
+                        method: 'POST', headers: authHeaders({}), body: form
+                    })
+                    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+                    .then(function (res) {
+                        if (!res.ok) throw new Error(res.data.detail || '3D upload failed');
+                        try { window.localStorage.removeItem('petCreatorGlb'); } catch (e) {}
+                        return petId;
+                    });
+                }
+                return Promise.resolve(petId);
+            })
+            .then(function (petId) {
+                setStatus('Done! Redirecting...', 'success');
+                setTimeout(function () { window.location.href = '/pets/' + petId + '/chat/'; }, 800);
+            })
+            .catch(function (err) {
+                setStatus('Error: ' + err.message, 'error');
+                btn.disabled = false;
+            });
         });
-    });
+    }
 
 })();
 </script>

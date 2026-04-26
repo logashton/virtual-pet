@@ -1,314 +1,389 @@
 # backend/chat/services/chatbot_service.py
 
-
-# CHATBOT SERVICE
-# Handles the actual chatbot talking stuff
-
+"""
+CHATBOT SERVICE - Returns both response and stat changes
+"""
 
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, LlamaTokenizer
 from pathlib import Path
 import logging
 import traceback
-import json
+import random
 import re
+import json
+from typing import Dict, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+
 class PetChatbotService:
-    def __init__(self, model_path=None):
+    # Service class for generating pet responses using a local LLM
+    
+    def __init__(self, model_path: Optional[str] = None):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = None
         self.tokenizer = None
         self.model_path = Path(model_path) if model_path else None
         
-        print("Starting chatbot...")
+        print("Starting Chatbot Service...")
+        print(f"Device: {self.device}")
+        
         self.load_model()
     
+    def _find_model_path(self) -> Optional[Path]:
+        # Automatically finds the model path
+        
+        if self.model_path and self.model_path.exists():
+            return self.model_path
+        
+        backend_root = Path(__file__).parent.parent.parent
+        
+        search_paths = [
+            backend_root / 'chat' / 'ai_models' / 'pet_chatbot' / 'primary-model',
+            backend_root / 'ai_models' / 'pet_chatbot' / 'primary-model',
+            Path('./chat/ai_models/pet_chatbot/primary-model'),
+            Path('./ai_models/pet_chatbot/primary-model'),
+        ]
+        
+        print("\nSearching for model...")
+        for path in search_paths:
+            if path.exists() and (path / 'config.json').exists():
+                print(f"Found at: {path}")
+                return path
+        
+        return None
+    
     def load_model(self):
-        # Loads the model and handles any mismatch of vocabulary
+        # Loads the local model and tokenizer
+        
+        actual_path = self._find_model_path()
+        
+        if actual_path is None:
+            print("\nNo model found.")
+            self.model = None
+            self.tokenizer = None
+            return
+        
+        self.model_path = actual_path
+        
         try:
-            # Always loads the tokenizer from base model first
-            print()
-            print("1. Loading tokenizer from base model...")
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                "distilgpt2",
-                use_fast=False
+            print(f"\nLoading model from: {self.model_path}")
+            
+            # Load tokenizer
+            print("\n1. Loading tokenizer...")
+            self.tokenizer = LlamaTokenizer.from_pretrained(
+                str(self.model_path),
+                trust_remote_code=True
             )
             
-            # Adds a padding token if it's needed
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
-                print("   Added pad_token")
+            self.tokenizer.padding_side = "right"
             
-            print(f"Tokenizer loaded successfully. Vocab size: {len(self.tokenizer)}")
+            print(f"Tokenizer loaded. Vocab size: {len(self.tokenizer)}")
             
-            # Loads the base model
-            print()
-            print("2. Loading base model...")
-            base_model = AutoModelForCausalLM.from_pretrained(
-                "distilgpt2",
-                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
-            )
+            # Loads model
+            print("\n2. Loading model...")
             
-            self.model = base_model
+            if torch.cuda.is_available():
+                print("   GPU mode (float16)")
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    str(self.model_path),
+                    torch_dtype=torch.float16,
+                    device_map="auto",
+                    trust_remote_code=True
+                )
+            else:
+                print("CPU mode (float32)")
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    str(self.model_path),
+                    torch_dtype=torch.float32,
+                    trust_remote_code=True
+                )
+                self.model = self.model.to(self.device)
             
-            # Tries to load LoRA weights if they exist
-            if self.model_path and self.model_path.exists():
-                print()
-                print(f"3. Looking for adapter_config.json in: {self.model_path}")
-                
-                # Finds the checkpoint folder or lora_weights
-                possible_config_paths = [
-                    self.model_path / 'adapter_config.json',
-                    self.model_path / 'checkpoint-3' / 'adapter_config.json',
-                    self.model_path / 'lora_weights' / 'adapter_config.json',
-                    self.model_path / 'checkpoint-3' / 'lora_weights' / 'adapter_config.json',
-                ]
-                
-                adapter_config_path = None
-                for path in possible_config_paths:
-                    if path.exists():
-                        adapter_config_path = path
-                        print(f"Found adapter_config.json at: {path}")
-                        break
-                
-                if adapter_config_path:
-                    # Gets the directory containing the adapter config
-                    lora_folder = adapter_config_path.parent
-                    
-                    try:
-                        print(f"Loading LoRA weights from {lora_folder}...")
-                        
-                        from peft import PeftModel
-                        
-                        # Loads the LoRA weights
-                        self.model = PeftModel.from_pretrained(
-                            base_model,
-                            lora_folder,
-                            is_trainable=False
-                        )
-                        
-                        print("LoRA weights loaded successfully")
-                        
-                        # Merges the weights for faster inference
-                        print("Merging LoRA weights...")
-                        self.model = self.model.merge_and_unload()
-                        print("LoRA weights merged")
-                        
-                    except Exception as e:
-                        print(f"WARNING! Could not load LoRA weights: {e}")
-                        print("Attempting manual weight loading...")
-                        
-                        try:
-                            from safetensors.torch import load_file
-                            import json
-                            
-                            # Loads the adapter config
-                            with open(adapter_config_path, 'r') as f:
-                                adapter_config = json.load(f)
-                            
-                            # Finds the safetensors file
-                            safetensors_files = list(lora_folder.glob('*.safetensors'))
-                            if safetensors_files:
-                                state_dict = load_file(str(safetensors_files[0]))
-                                
-                                # Filters out incompatible weights
-                                filtered_state_dict = {}
-                                for key, value in state_dict.items():
-                                    # Skips lm_head and wte weights
-                                    if 'lm_head' in key or 'wte' in key:
-                                        print(f"      Skipping {key} due to vocabulary mismatch")
-                                        continue
-                                    
-                                    # Remove base_model.model prefix if present
-                                    if key.startswith('base_model.model.'):
-                                        new_key = key.replace('base_model.model.', '', 1)
-                                    else:
-                                        new_key = key
-                                    
-                                    filtered_state_dict[new_key] = value
-                                
-                                # Creates a new PEFT model
-                                from peft import LoraConfig, get_peft_model
-                                
-                                lora_config = LoraConfig(
-                                    r=adapter_config.get('r', 8),
-                                    lora_alpha=adapter_config.get('lora_alpha', 32),
-                                    target_modules=adapter_config.get('target_modules', ['c_attn', 'c_proj', 'c_fc']),
-                                    lora_dropout=adapter_config.get('lora_dropout', 0.1),
-                                    bias=adapter_config.get('bias', 'none'),
-                                    task_type="CAUSAL_LM"
-                                )
-                                
-                                self.model = get_peft_model(base_model, lora_config)
-                                self.model.load_state_dict(filtered_state_dict, strict=False)
-                                self.model = self.model.merge_and_unload()
-                                print(f"Manually loaded {len(filtered_state_dict)} weights")
-                        except Exception as manual_error:
-                            print(f"Manual loading also failed: {manual_error}")
-                            self.model = base_model
-                else:
-                    print("No adapter_config.json found, using base model")
-            
-            # Moves the model to device
-            self.model = self.model.to(self.device)
             self.model.eval()
             
-            print()
-            print(f"Chatbot service ready on {self.device}")
-            if self.model_path and self.model_path.exists():
-                print(f"   Loaded from: {self.model_path}")
+            print("Chatbot service ready!")
+            print(f"Device: {self.device}")
             
         except Exception as e:
-            print(f"Failed to load model: {e}")
+            print(f"\nFailed to load model: {e}")
             traceback.print_exc()
             self.model = None
             self.tokenizer = None
-    
-    def generate_response(self, user_message, pet_state=None, system_prompt=None):
-        
-        # Generates a response from the pet
-        
-        # Args:
-        #     user_message: The user's message
-        #     pet_state: Dictionary with pet stats (hunger, happiness, etc.)
-        #     system_prompt: Full system prompt with personality and formatting instructions
-        
-        # Returns:
-        #     The pet's response as a string
 
+    def generate_response(self, user_message, pet_state=None, system_prompt=None):
+        # Generates a response from the pet (returns just the text for backward compatibility)
+
+        response, _ = self.generate_response_with_stats(user_message, pet_state, system_prompt)
+        return response
+    
+    def generate_response_with_stats(
+        self, 
+        user_message: str, 
+        pet_state: Optional[Dict[str, Any]] = None, 
+        system_prompt: Optional[str] = None
+    ) -> Tuple[str, Dict[str, int]]:
+        """
+        Generate a response AND stat changes based on the interaction
+        
+        Returns:
+            Tuple of (response_text, stat_changes_dict)
+        """
+        
+        # Fallback if the model not loaded
         if self.model is None or self.tokenizer is None:
-            return self._get_fallback_response()
+            return self._get_fallback_response(user_message), self._get_default_stat_changes(user_message)
         
         try:
-            # Uses the full system prompt if provided (from views.py)
-            if system_prompt:
-                # Builds the full prompt with conversation history
-                prompt = f"{system_prompt}\n\nUser: {user_message}\nPet:"
-            else:
-                # Simple fallback prompt
-                if pet_state:
-                    prompt = f"You are a {pet_state.get('species', 'pet')} named {pet_state.get('name', 'Pet')}. Current stats: hunger={pet_state.get('hunger', 50)}, happiness={pet_state.get('happiness', 50)}, energy={pet_state.get('energy', 50)}.\n\nUser: {user_message}\nPet:"
-                else:
-                    prompt = f"You are a friendly pet.\n\nUser: {user_message}\nPet:"
+            pet_name = pet_state.get('name', 'Pet') if pet_state else 'Pet'
             
-            print(f"Prompt length: {len(prompt)} characters")
+            # Build prompt that asks for JSON response with stat changes
+            system_content = system_prompt if system_prompt else f"""You are {pet_name}, a friendly pet.
+When responding, you MUST output valid JSON in this exact format:
+{{
+  "reply": "your response here with *actions*",
+  "stat_changes": {{
+    "hunger": integer (-20 to 20),
+    "energy": integer (-20 to 20),
+    "happiness": integer (-20 to 20),
+    "cleanliness": integer (-20 to 20),
+    "health": integer (-20 to 20)
+  }}
+}}
+
+IMPORTANT STAT GUIDELINES:
+- HUNGER: High number = full/not hungry, Low number = hungry/starving
+- ENERGY: High number = energetic/awake, Low number = tired/sleepy
+- HAPPINESS: High number = happy, Low number = sad
+- CLEANLINESS: High number = clean, Low number = dirty
+- HEALTH: High number = healthy, Low number = sick
+
+How stats should change:
+- Feeding the pet: hunger INCREASES (becomes fuller), happiness increases slightly
+- Playing: happiness increases, energy DECREASES (gets tired), hunger DECREASES slightly (gets hungrier)
+- Petting: happiness increases
+- Bath: cleanliness INCREASES
+- Sleeping: energy INCREASES
+- Being ignored: happiness DECREASES
+
+Most changes should be between -10 and +10.
+Only include stats that actually change (value != 0)."""
             
-            # Tokenizer
-            inputs = self.tokenizer.encode(prompt, return_tensors='pt', truncation=True, max_length=512).to(self.device)
+            # Use ChatML format
+            prompt = f"""<|im_start|>system
+{system_content}<|im_end|>
+<|im_start|>user
+{user_message}<|im_end|>
+<|im_start|>assistant
+"""
             
-            # Generater
+            print(f"\n💬 Generating with stats...")
+            print(f"   User: {user_message[:50]}...")
+            
+            # Encode
+            inputs = self.tokenizer.encode(
+                prompt, 
+                return_tensors='pt',
+                truncation=True,
+                max_length=512
+            )
+            
+            if inputs.numel() == 0:
+                return self._get_fallback_response(user_message), self._get_default_stat_changes(user_message)
+            
+            inputs = inputs.to(self.device)
+            
+            # Generate
             with torch.no_grad():
                 outputs = self.model.generate(
                     inputs,
-                    max_new_tokens=150,
-                    temperature=0.8,
+                    max_new_tokens=150,  # Need more tokens for JSON
+                    temperature=0.7,
                     top_p=0.9,
                     do_sample=True,
                     pad_token_id=self.tokenizer.pad_token_id,
                     eos_token_id=self.tokenizer.eos_token_id,
-                    repetition_penalty=1.1
                 )
             
-            # Decoder
-            full_response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            # Decode
+            full_response = self.tokenizer.decode(outputs[0], skip_special_tokens=False)
             
-            # Extracts only the new part (after "Pet:")
-            response = full_response[len(prompt):].strip()
+            # Extract assistant response
+            response_text = self._extract_assistant_response(full_response)
             
-            # Cleans up the response (sometimes the model adds extra formatting)
-            if "User:" in response:
-                response = response.split("User:")[0].strip()
-            if "Pet:" in response:
-                response = response.split("Pet:")[1].strip() if "Pet:" in response else response
+            # Try to parse JSON from response
+            reply, stat_changes = self._parse_json_response(response_text)
             
-            # Tries to parse as JSON if it looks like JSON (from your system prompt)
-            if response.strip().startswith('{') and response.strip().endswith('}'):
-                try:
-                    data = json.loads(response)
-                    if 'reply' in data:
-                        response = data['reply']
-                except:
-                    pass
+            # If no valid JSON, use fallback with default stats
+            if stat_changes is None or not stat_changes:
+                reply = response_text if response_text else self._get_fallback_response(user_message)
+                stat_changes = self._get_default_stat_changes(user_message, reply)
             
-            print(f"Generated response: {response[:100]}...")
+            print(f"   Response: {reply[:80]}...")
+            print(f"   Stat changes: {stat_changes}")
             
-            return response if response else self._get_fallback_response()
+            return reply, stat_changes
             
         except Exception as e:
-            print(f"Error generating response: {e}")
+            print(f"Error: {e}")
             traceback.print_exc()
-            return self._get_fallback_response()
+            return self._get_fallback_response(user_message), self._get_default_stat_changes(user_message)
     
-    def _get_fallback_response(self):
-        import random
-        responses = [
-            "*wags tail happily*",
-            "*purrs softly*",
-            "*makes a happy sound*",
-            "*nuzzles against you*",
-            "*looks at you with big eyes*",
-            "*tilts head curiously*",
-            "*gives you a gentle nudge*"
+    def _parse_json_response(self, response: str) -> Tuple[str, Dict[str, int]]:
+        # Parses JSON from the model response
+        
+        try:
+            # Try to find JSON in the response
+            json_match = re.search(r'\{[^{}]*"reply"[^{}]*\}', response, re.DOTALL)
+            if not json_match:
+                json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            
+            if json_match:
+                data = json.loads(json_match.group())
+                reply = data.get('reply', response)
+                stat_changes = data.get('stat_changes', {})
+                
+                # Validate stat changes
+                valid_stats = {}
+                for stat in ['hunger', 'energy', 'happiness', 'cleanliness', 'health']:
+                    if stat in stat_changes:
+                        value = int(stat_changes[stat])
+                        # Clamp between -20 and 20
+                        value = max(-20, min(20, value))
+                        if value != 0:
+                            valid_stats[stat] = value
+                
+                return reply, valid_stats
+            
+        except (json.JSONDecodeError, TypeError, ValueError) as e:
+            print(f"   JSON parse error: {e}")
+        
+        return response, None
+    
+    def _extract_assistant_response(self, full_response: str) -> str:
+        # Extract only the assistant's response 
+        
+        patterns = [
+            r'<\|im_start\|>assistant\n(.*?)(?:<\|im_end\|>|$)',
+            r'Assistant:\s*(.*?)(?:\n|$)',
         ]
-        return random.choice(responses)
+        
+        for pattern in patterns:
+            match = re.search(pattern, full_response, re.DOTALL)
+            if match:
+                response = match.group(1).strip()
+                response = re.sub(r'<\|.*?\|>', '', response)
+                return response
+        
+        if '<|im_start|>assistant' in full_response:
+            parts = full_response.split('<|im_start|>assistant', 1)
+            if len(parts) > 1:
+                response = parts[1].strip()
+                response = re.sub(r'<\|im_end\|>.*$', '', response)
+                return response
+        
+        return full_response.strip()
+    
+    def _get_default_stat_changes(self, user_message: str, response: str = "") -> Dict[str, int]:
+        # Generate default stat changes based on message content
+        
+        stat_changes = {}
+        msg_lower = user_message.lower()
+        
+        # FEEDING - increases hunger (makes fuller), increases happiness
+        if any(word in msg_lower for word in ['feed', 'food', 'eat', 'treat', 'meal', 'feed', 'dinner', 'breakfast', 'lunch', 'snack']):
+            stat_changes['hunger'] = 12      # +12 = fuller (less hungry)
+            stat_changes['happiness'] = 8
+            stat_changes['energy'] = 3
+        
+        # PLAYING - increases happiness, decreases energy
+        elif any(word in msg_lower for word in ['play', 'fetch', 'toy', 'ball', 'run', 'chase', 'walk']):
+            stat_changes['happiness'] = 10
+            stat_changes['energy'] = -8      # -8 = more tired
+            stat_changes['hunger'] = -3      # -3 = hungrier from playing
+        
+        # PETTING/AFFECTION - increases happiness
+        elif any(word in msg_lower for word in ['pet', 'cuddle', 'hug', 'love', 'good', 'sweet', 'nice', 'pat']):
+            stat_changes['happiness'] = 8
+        
+        # BATH/CLEANING - increases cleanliness
+        elif any(word in msg_lower for word in ['bath', 'clean', 'wash', 'groom', 'shower']):
+            stat_changes['cleanliness'] = 20
+            stat_changes['happiness'] = 5
+            stat_changes['energy'] = -5      # Baths can be tiring
+        
+        # SLEEP/REST - increases energy, decreases hunger slightly
+        elif any(word in msg_lower for word in ['sleep', 'nap', 'rest', 'bed', 'tired', 'sleepy']):
+            stat_changes['energy'] = 15
+            stat_changes['hunger'] = -4      # -4 = hungrier after sleeping
+        
+        # MEDICINE/HEALING - increases health
+        elif any(word in msg_lower for word in ['heal', 'medicine', 'doctor', 'vet', 'cure']):
+            stat_changes['health'] = 15
+            stat_changes['happiness'] = -3   # Doesn't like medicine
+        
+        # NEGATIVE interactions
+        elif any(word in msg_lower for word in ['ignore', 'bad', 'stupid', 'hate', 'mean', 'rude']):
+            stat_changes['happiness'] = -10
+            stat_changes['energy'] = -3
+        
+        # DEFAULT - small happiness increase for kind interactions
+        else:
+            stat_changes['happiness'] = 3
+        
+        return stat_changes
+    
+    def _get_fallback_response(self, user_message: str = "") -> str:
+        # Returns a context-appropriate fallback response
+        
+        msg_lower = user_message.lower()
+        
+        if "feed" in msg_lower or "food" in msg_lower:
+            return random.choice([
+                "*eats happily* Thank you! That was delicious!",
+                "*purrs while eating* Mmm, so good!",
+            ])
+        elif "play" in msg_lower:
+            return random.choice([
+                "*wags tail excitedly* Let's play!",
+                "*bounces around* Yay! Playtime!",
+            ])
+        elif "sleep" in msg_lower:
+            return random.choice([
+                "*yawns* Goodnight... *curls up*",
+                "*gets cozy* Sleepy time... zzz",
+            ])
+        elif "bath" in msg_lower or "clean" in msg_lower:
+            return random.choice([
+                "*splashes happily* This feels nice!",
+                "*purrs* I feel so clean now!",
+            ])
+        else:
+            return random.choice([
+                "*tilts head* That's nice!",
+                "*purrs softly* I like that!",
+                "*wags tail* Tell me more!",
+            ])
 
 
-# Singleton instance
+# Singleton
 _chatbot_service = None
 
-def get_chatbot_service(model_path=None):
+
+def get_chatbot_service(model_path: Optional[str] = None) -> PetChatbotService:
     global _chatbot_service
     if _chatbot_service is None:
-        # If there's no model path provided, tries to find it in standard locations
-        if model_path is None:
-            base_dir = Path(__file__).parent.parent.parent  # Go up to backend root
-            pet_chatbot_dir = base_dir / 'chat' / 'ai_models' / 'pet_chatbot'
-            
-            print(f"Looking for models in: {pet_chatbot_dir}")
-            
-            if pet_chatbot_dir.exists():
-                # Finds all subdirectories that look like timestamps
-                model_folders = []
-                for item in pet_chatbot_dir.iterdir():
-                    if item.is_dir():
-                        # Check if it's a timestamp folder (starts with numbers)
-                        if item.name[0].isdigit():
-                            model_folders.append(item)
-                        # Also checks if it has lora_weights inside
-                        elif (item / 'lora_weights').exists():
-                            model_folders.append(item)
-                
-                if model_folders:
-                    # Sorts by name and gets the most recent
-                    model_folders.sort(reverse=True)
-                    latest_model = model_folders[0]
-                    
-                    print(f"Found model folders:")
-                    for folder in model_folders:
-                        marker = "✓" if folder == latest_model else " "
-                        print(f"  {marker} {folder.name}")
-                    
-                    # Checks if lora_weights folder exists inside
-                    lora_path = latest_model / 'lora_weights'
-                    if lora_path.exists():
-                        model_path = str(lora_path)
-                        print(f"\nUsing LoRA weights from: {lora_path}")
-                    else:
-                        model_path = str(latest_model)
-                        print(f"\nUsing model from: {latest_model}")
-                else:
-                    print("No timestamp folders found, checking for direct lora_weights...")
-                    # Checks for lora_weights directly
-                    lora_direct = pet_chatbot_dir / 'lora_weights'
-                    if lora_direct.exists():
-                        model_path = str(lora_direct)
-                        print(f"Found lora_weights at: {lora_direct}")
-                    else:
-                        print("No model found, will use base model")
-            else:
-                print(f"Directory not found: {pet_chatbot_dir}")
-        
         _chatbot_service = PetChatbotService(model_path)
     return _chatbot_service
+
+
+if __name__ == "__main__":
+    chatbot = get_chatbot_service()
+    if chatbot.model:
+        response = chatbot.generate_response("Hello!", {'name': 'Buddy'})
+        print(f"\nResponse: {response}")
+    else:
+        print("\nModel not loaded")

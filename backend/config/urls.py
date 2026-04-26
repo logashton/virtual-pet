@@ -8,6 +8,7 @@ from core.views_background import RemoveBackgroundView
 from core.views_image_to_3d import ImageTo3DView
 from core.views_generate_personality import GeneratePersonalityView
 
+from core.views_segmenter import SegmentImageView
 
 urlpatterns = [
     path("", web_views.home_page, name="home"),
@@ -21,7 +22,7 @@ urlpatterns = [
     path("api/pets/", include("core.pets_urls")),
     path("api/moderation-reports/", include("core.moderation_urls")),
     path("api/admin/", include("core.admin_urls")),
-    path("api/remove-background/", RemoveBackgroundView.as_view(), name="remove_background"),
+    path("api/segment/", SegmentImageView.as_view(), name="segment_image"),
     path("api/image-to-3d/", ImageTo3DView.as_view(), name="image_to_3d"),
     path("api/generate-personality/", GeneratePersonalityView.as_view(), name="generate_personality"),  #generate personality from image
     path("chat/", include("chat.urls")),
