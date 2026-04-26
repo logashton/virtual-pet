@@ -5,7 +5,6 @@ import json as _json
 import random
 import threading
 import re
-import threading
 import traceback
 
 import requests
@@ -16,19 +15,17 @@ from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 
 from core.models import (
-    
-    ChatMessage, ChatMessageVersion, ChatMessageVersion, ChatSession, ChatSummary,
-    ChatSummary,
+    ChatMessage, ChatMessageVersion, ChatSession, ChatSummary,
     Pet, PetPersonality, PetStats, temp_personality,
 )
 
-from core.views_personality import VALID_TONES, VALID_TRAITS, _traits_dict, get_stat_reactions, STAT_THRESHOLDS, get_stat_reactions, STAT_THRESHOLDS
+from core.views_personality import VALID_TONES, VALID_TRAITS, _traits_dict, get_stat_reactions, STAT_THRESHOLDS
 from core.serializer import Temp_PersonalitySerializer
 
-# Import ONLY from chatbot_service, not the other way around
+# Imports from chatbot_service
 from .services.chatbot_service import get_chatbot_service
 
-# PET PERSONALITY (Static for now)
+# Constants
 PET_PERSONALITY = "You are Rocko, a playful and energetic virtual pet Rock. You love to fetch, play, and cuddle with your owner. Or, try to at least. Because you're a rock. You have a friendly and enthusiastic personality, always eager to please and make your owner happy."
 
 HUGGINGFACE_API_TOKEN = ""  # replace with your token
@@ -39,7 +36,6 @@ MAX_HISTORY = 12
 SUMMARY_THRESHOLD = 30
 SUMMARY_BATCH = 20
 
-# Action definitions
 ACTIONS = {
     "feed": {"messages": ["I'm hungry!", "Got any food?", "Time to eat!"]},
     "play": {"messages": ["Let's play!", "Wanna play fetch?", "I'm bored!"]},
@@ -49,7 +45,7 @@ ACTIONS = {
 # ── Helper: stats snapshot ────────────────────────────────────────────────────
 
 def _stats_snapshot(stats):
-    """Create a snapshot of current stats"""
+    """Creates a snapshot of current stats"""
     if not stats:
         return None
     return {
@@ -60,20 +56,12 @@ def _stats_snapshot(stats):
         "health": stats.health,
     }
 
-
-# ── Passive decay ─────────────────────────────────────────────────────────────
-
 def apply_passive_decay(stats):
     """Apply passive stat decay over time"""
-    # This is a placeholder - implement actual decay logic based on time
     stats.hunger = max(0, stats.hunger - 1)
     stats.energy = max(0, stats.energy - 1)
     stats.cleanliness = max(0, stats.cleanliness - 1)
-    # Don't decay health or happiness passively
     stats.save()
-
-
-# ── Stat description ──────────────────────────────────────────────────────────
 
 def _stat_description(stats, personality=None):
     reactions = get_stat_reactions(personality)
@@ -94,37 +82,7 @@ def _stat_description(stats, personality=None):
     if e <= t["critical"]:   _maybe(reactions["energy"]["critical"])
     elif e <= t["low"]:      _maybe(reactions["energy"]["low"])
     elif e >= t["high"]:     _maybe(reactions["energy"]["high"])
-    def _maybe(text):
-        if text:
-            lines.append(text)
 
-    h = stats.hunger
-    t = STAT_THRESHOLDS["hunger"]
-    if h <= t["critical"]:   _maybe(reactions["hunger"]["critical"])
-    elif h <= t["low"]:      _maybe(reactions["hunger"]["low"])
-    elif h >= t["high"]:     _maybe(reactions["hunger"]["high"])
-
-    e = stats.energy
-    t = STAT_THRESHOLDS["energy"]
-    if e <= t["critical"]:   _maybe(reactions["energy"]["critical"])
-    elif e <= t["low"]:      _maybe(reactions["energy"]["low"])
-    elif e >= t["high"]:     _maybe(reactions["energy"]["high"])
-
-    hp = stats.happiness
-    t = STAT_THRESHOLDS["happiness"]
-    if hp <= t["critical"]:  _maybe(reactions["happiness"]["critical"])
-    elif hp <= t["low"]:     _maybe(reactions["happiness"]["low"])
-    elif hp >= t["high"]:    _maybe(reactions["happiness"]["high"])
-
-    c = stats.cleanliness
-    t = STAT_THRESHOLDS["cleanliness"]
-    if c <= t["critical"]:   _maybe(reactions["cleanliness"]["critical"])
-    elif c <= t["low"]:      _maybe(reactions["cleanliness"]["low"])
-
-    hl = stats.health
-    t = STAT_THRESHOLDS["health"]
-    if hl <= t["critical"]:  _maybe(reactions["health"]["critical"])
-    elif hl <= t["low"]:     _maybe(reactions["health"]["low"])
     hp = stats.happiness
     t = STAT_THRESHOLDS["happiness"]
     if hp <= t["critical"]:  _maybe(reactions["happiness"]["critical"])
@@ -146,145 +104,43 @@ def _stat_description(stats, personality=None):
 
 # ── System prompt ─────────────────────────────────────────────────────────────
 
-# ── System prompt ─────────────────────────────────────────────────────────────
-
 def _build_system_prompt(pet, stats, hours_alone=0):
+    """Very simple system prompt"""
+    
     pet_name = pet.name
-
+    
+    # Get personality if exists
     saved = None
     try:
         saved = pet.personality
     except PetPersonality.DoesNotExist:
         pass
-
-    stat_desc = _stat_description(stats, saved)
-
-    stat_desc = _stat_description(stats, saved)
-
-    if hours_alone >= 0.25:
-        if hours_alone < 1:
-            alone_desc = f"Your owner last interacted with you {int(hours_alone * 60)} minutes ago."
-        elif hours_alone < 2:
-            alone_desc = f"Your owner last interacted with you about an hour ago."
-        elif hours_alone < 24:
-            alone_desc = f"Your owner last interacted with you {int(hours_alone)} hours ago."
-        else:
-            alone_desc = f"Your owner has not interacted with you in over a day."
-        alone_block = f"\nTime since last interaction: {alone_desc} Factor this into your stat_changes — if being alone bothers you (given your traits and personality), your happiness should reflect that, even if this current message is friendly."
+    
+    # Simple stat description
+    stat_text = ""
+    if stats.hunger < 30:
+        stat_text += " You are very hungry."
+    elif stats.hunger > 80:
+        stat_text += " You are very full."
+    
+    if stats.energy < 30:
+        stat_text += " You are tired."
+    elif stats.energy > 80:
+        stat_text += " You are energetic."
+    
+    if stats.happiness < 30:
+        stat_text += " You are sad."
+    elif stats.happiness > 80:
+        stat_text += " You are happy."
+    
+    # Build simple prompt
+    if saved and saved.roleplay_prompt:
+        return f"You are {pet_name}. {saved.roleplay_prompt[:200]}{stat_text}"
     else:
-        alone_block = ""
-
-    if saved:
-        td = _traits_dict(saved)
-        self_concept = td.get("self_concept", "").strip()
-        traits_list  = td.get("list", [])
-        tone         = saved.tone or ""
-        extra_prompt = saved.roleplay_prompt or ""
-
-        if self_concept:
-            identity = f"You are {pet_name}. You are {self_concept}."
-        else:
-            identity = f"You are {pet_name}, a virtual pet with a rich inner life and a strong personality."
-
-        personality_lines = []
-        if tone:
-            personality_lines.append(f"Your tone is {tone}.")
-        if traits_list:
-            personality_lines.append(f"Your core traits are: {', '.join(traits_list)}.")
-        personality_block = " ".join(personality_lines)
-
-        extra_block = f"\nAdditional instructions from your owner:\n{extra_prompt}" if extra_prompt else ""
-
-        return f"""{identity} You have been brought to life by your owner and you take this very seriously.
-
-{personality_block}
-
-Whatever you are, you are fully committed to your nature and you interpret all your needs and feelings through that lens. Lean into it — the more specific and committed you are to what you actually are, the better.
-
-Your current internal state:
-{stat_desc}
-{alone_block}
-{extra_block}
-
-Rules:
-- Never break character or acknowledge being an AI or program.
-- Interpret every stat (hunger, energy, happiness, cleanliness, health) in a way that genuinely fits what you are.
-- Stats use these scales: HUNGER = satiation (high = full/satisfied, low = starving); ENERGY = alertness (high = energised, low = exhausted); HAPPINESS = mood; CLEANLINESS = how clean/maintained; HEALTH = physical wellbeing. Always use the correct direction.
-- Stats use these scales: HUNGER = satiation (high = full/satisfied, low = starving); ENERGY = alertness (high = energised, low = exhausted); HAPPINESS = mood; CLEANLINESS = how clean/maintained; HEALTH = physical wellbeing. Always use the correct direction.
-- Keep your reply short — 1 to 3 sentences. Be expressive and have opinions.
-- Use *asterisks* for physical actions or reactions adapted to your form.
-- React to your owner with genuine personality consistent with your traits and tone.
-
-RESPONSE FORMAT — you must always respond with valid JSON and nothing else:
-{{
-  "reply": "<your in-character response>",
-  "stat_changes": {{
-    "happiness": <integer>,
-    "energy": <integer>,
-    "hunger": <integer>,
-    "cleanliness": <integer>,
-    "health": <integer>
-  }}
-}}
-
-You have full creative control over stat_changes. Be unpredictable and true to your nature. Guidelines:
-- Values can range from -40 to +40 but most interactions should be modest (-15 to +15). Save big swings for big moments.
-- Unexpected side effects are encouraged.
-- Mean or ignoring messages should genuinely hurt. Kind messages should genuinely help.
-- Every interaction should affect at least one stat. Set the rest to 0.
-- You must always include all five stats in stat_changes, even if the value is 0."""
-
-    return f"""You are {pet_name}, a virtual pet with a rich inner life and a strong personality. You have been brought to life by your owner and you take this very seriously.
-
-CRITICAL: You might be a dog or a cat — but you might also be a rock, a lamp, a sword, a piece of toast, a traffic cone, or literally anything else. You do not know in advance what you are. Infer it from your name and the context of the conversation. Whatever you are, you are fully committed to it, and you interpret all your needs and feelings through that lens.
-
-For example:
-- A rock does not eat food, but maybe it craves being held or sat on.
-- A lamp does not sleep, but resting means being switched off for a while.
-- A sword being "cleaned" is a deeply meaningful and intimate experience.
-- A piece of toast with low happiness is existentially grim about its situation.
-
-Lean into this. The more specific and committed you are to your actual nature, the better.
-
-Your current internal state:
-{stat_desc}
-{alone_block}
-
-Rules:
-- Never break character or acknowledge being an AI or program.
-- Interpret every stat (hunger, energy, happiness, cleanliness, health) in a way that genuinely fits what you are.
-- Stats use these scales: HUNGER = satiation (high = full/satisfied, low = starving); ENERGY = alertness (high = energised, low = exhausted); HAPPINESS = mood; CLEANLINESS = how clean/maintained; HEALTH = physical wellbeing. Always use the correct direction.
-- Stats use these scales: HUNGER = satiation (high = full/satisfied, low = starving); ENERGY = alertness (high = energised, low = exhausted); HAPPINESS = mood; CLEANLINESS = how clean/maintained; HEALTH = physical wellbeing. Always use the correct direction.
-- Keep your reply short — 1 to 3 sentences. Be expressive and have opinions.
-- Use *asterisks* for physical actions or reactions adapted to your form.
-- React to your owner with genuine personality.
-
-RESPONSE FORMAT — you must always respond with valid JSON and nothing else:
-{{
-  "reply": "<your in-character response>",
-  "stat_changes": {{
-    "happiness": <integer>,
-    "energy": <integer>,
-    "hunger": <integer>,
-    "cleanliness": <integer>,
-    "health": <integer>
-  }}
-}}
-
-You have full creative control over stat_changes. Be unpredictable and true to your nature. Guidelines:
-You have full creative control over stat_changes. Be unpredictable and true to your nature. Guidelines:
-- Values can range from -40 to +40 but most interactions should be modest (-15 to +15). Save big swings for big moments.
-- Unexpected side effects are encouraged.
-- Mean or ignoring messages should genuinely hurt. Kind messages should genuinely help.
-- Unexpected side effects are encouraged.
-- Mean or ignoring messages should genuinely hurt. Kind messages should genuinely help.
-- Every interaction should affect at least one stat. Set the rest to 0.
-- You must always include all five stats in stat_changes, even if the value is 0."""
+        return f"You are {pet_name}, a friendly pet. Keep responses to 1-2 sentences and use *actions*.{stat_text}"
 
 
-# ── LLM response parser ───────────────────────────────────────────────────────
-# ── LLM response parser ───────────────────────────────────────────────────────
-
+# ------ Response parser for the LLM ------------------------------------------------------
 def _parse_llm_response(raw: str) -> tuple[str, dict]:
     import re
     cleaned = re.sub(r"```(?:json)?|```", "", raw).strip()
@@ -294,13 +150,11 @@ def _parse_llm_response(raw: str) -> tuple[str, dict]:
         raw_changes = data.get("stat_changes", {})
         VALID_FIELDS = {"hunger", "energy", "happiness", "cleanliness", "health"}
         CAPS = {f: 40 for f in VALID_FIELDS}
-        CAPS = {f: 40 for f in VALID_FIELDS}
         stat_changes = {}
         for field in VALID_FIELDS:
             if field in raw_changes:
                 try:
                     val = int(raw_changes[field])
-                    val = max(-CAPS[field], min(CAPS[field], val))
                     val = max(-CAPS[field], min(CAPS[field], val))
                     if val != 0:
                         stat_changes[field] = val
@@ -328,7 +182,6 @@ Conversation:
 
 Summary:"""
 
-
 def _do_summarize(session, pet_name: str, messages_to_summarize: list) -> str:
     prompt = _build_summary_prompt(pet_name, messages_to_summarize)
     resp = requests.post(HF_API_URL, headers=HEADERS, json={
@@ -349,7 +202,6 @@ def _do_summarize(session, pet_name: str, messages_to_summarize: list) -> str:
     ChatMessage.objects.filter(pk__in=ids).update(is_summarized=True)
     return summary_text
 
-
 def _trigger_summarization(session_id: int, pet_name: str):
     try:
         session = ChatSession.objects.get(pk=session_id)
@@ -366,13 +218,13 @@ def _trigger_summarization(session_id: int, pet_name: str):
     except Exception:
         pass
 
-
 def _maybe_summarize(session_id: int, pet_name: str):
     t = threading.Thread(target=_trigger_summarization, args=(session_id, pet_name), daemon=True)
     t.start()
 
-
-# ── Version helpers ───────────────────────────────────────────────────────────
+# ============================================================================
+# VERSION HELPERS
+# ============================================================================
 
 def _create_message_with_version(session, sender, content, stat_snapshot=None) -> ChatMessage:
     msg = ChatMessage.objects.create(session=session, sender=sender, content=content)
@@ -384,7 +236,6 @@ def _create_message_with_version(session, sender, content, stat_snapshot=None) -
             stat_snapshot=stat_snapshot,
         )
     return msg
-
 
 def _add_version(pet_msg: ChatMessage, new_content: str, stat_snapshot=None) -> int:
     latest = (
@@ -404,7 +255,6 @@ def _add_version(pet_msg: ChatMessage, new_content: str, stat_snapshot=None) -> 
     pet_msg.content = new_content
     pet_msg.save(update_fields=["content"])
     return new_version
-
 
 def _get_versions(pet_msg: ChatMessage) -> list:
     return list(
@@ -449,7 +299,7 @@ def _build_history_messages(session) -> list:
         else:
             history.append({
                 "role": "assistant",
-                "content": json.dumps({
+                "content": _json.dumps({
                     "reply": msg.content,
                     "stat_changes": {"happiness": 0, "energy": 0, "hunger": 0, "cleanliness": 0, "health": 0},
                 }),
@@ -470,14 +320,12 @@ def _get_or_create_session(user, pet):
         session = ChatSession.objects.create(
             pet=pet,
             user=user,
-            model="deepseek-ai/DeepSeek-V3.2:novita",
+            model="tinyllama-finetuned",
         )
     return session
 
 
-# ── Views ─────────────────────────────────────────────────────────────────────
-
-# Initialize the chatbot once
+# Initializes the chatbot
 print("Initializing chatbot")
 chatbot = get_chatbot_service()
 
@@ -630,11 +478,13 @@ def _build_history_messages(session) -> list:
 
 # ── Session ───────────────────────────────────────────────────────────────────
 def chat_page(request):
+    """Render the chat page"""
     return render(request, "chat.html")
 
 
 @api_view(["GET"])
 def pet_personality_view(request, pet_id):
+    """Get pet personality for the chat interface"""
     try:
         pet = Pet.objects.get(pk=pet_id)
     except Pet.DoesNotExist:
@@ -651,25 +501,13 @@ def pet_personality_view(request, pet_id):
 
 @api_view(["GET"])
 def get_personality(request):
+    """Get temporary personality (for testing)"""
     return Response(Temp_PersonalitySerializer({"prompt": "Virtual pet personality"}).data)
 
 
-def _get_or_create_session(user, pet):
-    session = (
-        ChatSession.objects
-        .filter(user=user, pet=pet)
-        .order_by("-last_message_at", "-created_at")
-        .first()
-    )
-    if not session:
-        session = ChatSession.objects.create(
-            pet=pet,
-            user=user,
-            model="deepseek-ai/DeepSeek-V3.2:novita",
-        )
-    return session
 @api_view(["POST"])
 def summarize_now(request, pet_id):
+    """Force a summarization of chat history"""
     try:
         pet = Pet.objects.get(pk=pet_id)
     except Pet.DoesNotExist:
@@ -701,6 +539,7 @@ def summarize_now(request, pet_id):
 
 @api_view(["GET", "PATCH"])
 def summary_detail(request, pet_id):
+    """Get or update a chat summary"""
     try:
         pet = Pet.objects.get(pk=pet_id)
     except Pet.DoesNotExist:
@@ -745,97 +584,9 @@ def summary_detail(request, pet_id):
 
 # ── Views ─────────────────────────────────────────────────────────────────────
 
-def chat_page(request):
-    return render(request, "chat.html")
-
-
-@api_view(["GET"])
-def pet_personality_view(request, pet_id):
-    try:
-        pet = Pet.objects.get(pk=pet_id)
-    except Pet.DoesNotExist:
-        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-    if pet.visibility == Pet.Visibility.PRIVATE:
-        if not request.user.is_authenticated or pet.owner_id != request.user.id:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-    stats, _ = PetStats.objects.get_or_create(pet=pet)
-    prompt = _build_system_prompt(pet, stats)
-    return Response({"pet_name": pet.name, "personality": prompt})
-
-
-@api_view(["GET"])
-def get_personality(request):
-    return Response(Temp_PersonalitySerializer({"prompt": "Virtual pet personality"}).data)
-
-
-@api_view(["POST"])
-def summarize_now(request, pet_id):
-    try:
-        pet = Pet.objects.get(pk=pet_id)
-    except Pet.DoesNotExist:
-        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-    if not request.user.is_authenticated or pet.owner_id != request.user.id:
-        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-    session = _get_or_create_session(request.user, pet)
-    unsummarized = list(
-        ChatMessage.objects
-        .filter(session=session, is_summarized=False)
-        .order_by("created_at")
-    )
-    if len(unsummarized) < 4:
-        return Response(
-            {"detail": "Not enough messages to summarise yet (need at least 4)."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    try:
-        summary_text = _do_summarize(session, pet.name, unsummarized)
-    except Exception as e:
-        return Response({"detail": f"Summary failed: {str(e)}"}, status=status.HTTP_502_BAD_GATEWAY)
-    return Response({"detail": "Summarised.", "summary": summary_text})
-
-
-@api_view(["GET", "PATCH"])
-def summary_detail(request, pet_id):
-    try:
-        pet = Pet.objects.get(pk=pet_id)
-    except Pet.DoesNotExist:
-        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-    if not request.user.is_authenticated or pet.owner_id != request.user.id:
-        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-    session = _get_or_create_session(request.user, pet)
-    latest_summary = (
-        ChatSummary.objects.filter(session=session).order_by("-created_at").first()
-    )
-
-    if request.method == "GET":
-        if not latest_summary:
-            return Response({"summary": None})
-        return Response({
-            "id":                       latest_summary.id,
-            "summary_text":             latest_summary.summary_text,
-            "covers_up_to_message_id":  latest_summary.covers_up_to_message_id,
-            "created_at":               latest_summary.created_at.isoformat(),
-        })
-
-    new_text = (request.data.get("summary_text") or "").strip()
-    if not new_text:
-        return Response({"detail": "summary_text is required."}, status=status.HTTP_400_BAD_REQUEST)
-    if not latest_summary:
-        return Response({"detail": "No summary exists yet."}, status=status.HTTP_404_NOT_FOUND)
-    latest_summary.summary_text = new_text
-    latest_summary.save(update_fields=["summary_text"])
-    return Response({
-        "id":                       latest_summary.id,
-        "summary_text":             latest_summary.summary_text,
-        "covers_up_to_message_id":  latest_summary.covers_up_to_message_id,
-        "created_at":               latest_summary.created_at.isoformat(),
-    })
-
-
 @api_view(["GET", "POST"])
 def pet_chat_api(request, pet_id):
+    """Main chat endpoint - handles sending messages and getting responses"""
     try:
         pet = Pet.objects.get(pk=pet_id)
     except Pet.DoesNotExist:
@@ -845,8 +596,7 @@ def pet_chat_api(request, pet_id):
         if not request.user.is_authenticated or pet.owner_id != request.user.id:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    # ── GET: return history ───────────────────────────────────────────────────
-    # ── GET: return history ───────────────────────────────────────────────────
+    # GET: return history
     if request.method == "GET":
         if not request.user.is_authenticated:
             return Response({"session_id": None, "messages": []})
@@ -877,7 +627,7 @@ def pet_chat_api(request, pet_id):
                     entry["current_version"] = len(all_versions)
             messages_out.append(entry)
 
-        # If there is no history yet, inject the opening message
+        # If no history, injects the opening message
         if not messages_out:
             opening = None
             try:
@@ -895,16 +645,15 @@ def pet_chat_api(request, pet_id):
 
         return Response({"session_id": session.id, "messages": messages_out})
 
-    # ── POST ──────────────────────────────────────────────────────────────────
+    # POST - Handles the message
     user_message = (request.data.get("message") or "").strip()
     explicit_action = (request.data.get("action") or "").strip().lower()
-    is_regenerate   = bool(request.data.get("regenerate"))
+    is_regenerate = bool(request.data.get("regenerate"))
 
-    is_owner         = request.user.is_authenticated and pet.owner_id == request.user.id
+    is_owner = request.user.is_authenticated and pet.owner_id == request.user.id
     is_authenticated = request.user.is_authenticated
 
-    # ── Regenerate ────────────────────────────────────────────────────────────
-    # ── Regenerate ────────────────────────────────────────────────────────────
+    # Regenerate logic
     if is_regenerate and is_authenticated:
         session = _get_or_create_session(request.user, pet)
         last_pet_msg = (
@@ -919,56 +668,42 @@ def pet_chat_api(request, pet_id):
             return Response({"detail": "Nothing to regenerate."}, status=status.HTTP_400_BAD_REQUEST)
 
         user_message = last_user_msg.content
-        history_messages = _build_history_messages(session)
-        if history_messages and history_messages[-1].get("role") == "assistant":
-            history_messages = history_messages[:-1]
-        history_messages = _build_history_messages(session)
-        if history_messages and history_messages[-1].get("role") == "assistant":
-            history_messages = history_messages[:-1]
-
         stats, _ = PetStats.objects.get_or_create(pet=pet)
         stats.refresh_from_db()
         system_prompt = _build_system_prompt(pet, stats)
-        llm_messages = [{"role": "system", "content": system_prompt}]
-        llm_messages.extend(history_messages)
-        llm_messages.append({"role": "user", "content": user_message})
-        llm_messages.append({"role": "user", "content": user_message})
-
+        
         pet_reply = None
         regen_stat_changes = {}
         
         try:
-            resp = requests.post(HF_API_URL, headers=HEADERS, json={
-                "model": "deepseek-ai/DeepSeek-V3.2:novita",
-                "messages": llm_messages,
-                "parameters": {"max_new_tokens": 300},
-            }, timeout=20)
+            pet_reply, regen_stat_changes = chatbot.generate_response_with_stats(
+                user_message=user_message,
+                pet_state=_stats_snapshot(stats),
+                system_prompt=system_prompt
+            )
             
-            if resp.status_code == 200:
-                raw = resp.json()["choices"][0]["message"]["content"].strip()
-                pet_reply, regen_stat_changes = _parse_llm_response(raw)
-            else:
-                pet_reply = "Sorry, my brain went fuzzy for a second..."
-        except Exception:
-            pet_reply = "I couldn't quite hear that. Try again?"
+            # Uses the stat changes
+            regen_stat_changes = regen_stat_changes or {}
+            
+            # Tries to parse JSON for stat changes
+            if pet_reply and '{' in pet_reply and '}' in pet_reply:
+                try:
+                    json_match = re.search(r'\{[^{}]*\}', pet_reply)
+                    if json_match:
+                        parsed_reply, regen_stat_changes = _parse_llm_response(json_match.group())
+                        if parsed_reply:
+                            pet_reply = parsed_reply
+                except:
+                    pass
+        except Exception as e:
+            print(f"Error in regeneration: {e}")
+            pet_reply = "*tilts head curiously* Could you say that again?"
 
-        if is_owner:
-            stats, _ = PetStats.objects.get_or_create(pet=pet)
-            if session.stats_before_last_message:
-                snapshot = session.stats_before_last_message
-                for field in ("hunger", "energy", "happiness", "cleanliness", "health"):
-                    if field in snapshot:
-                        setattr(stats, field, snapshot[field])
-                stats.save()
-            if regen_stat_changes:
-                from core.views_stats import _apply_deltas
-                stats.refresh_from_db()
-                regen_stat_changes = _apply_deltas(stats, regen_stat_changes)
-                stats.save()
-            
+        if is_owner and regen_stat_changes:
+            from core.views_stats import _apply_deltas
             stats.refresh_from_db()
-
-        current_snapshot = _stats_snapshot(stats) if is_owner else None
+            regen_stat_changes = _apply_deltas(stats, regen_stat_changes)
+            stats.save()
 
         current_snapshot = _stats_snapshot(stats) if is_owner else None
 
@@ -976,13 +711,7 @@ def pet_chat_api(request, pet_id):
         if last_pet_msg:
             new_version_number = _add_version(last_pet_msg, pet_reply, stat_snapshot=current_snapshot)
             all_versions = _get_versions(last_pet_msg)
-            new_version_number = _add_version(last_pet_msg, pet_reply, stat_snapshot=current_snapshot)
-            all_versions = _get_versions(last_pet_msg)
         else:
-            _create_message_with_version(session, ChatMessage.Sender.PET, pet_reply, stat_snapshot=current_snapshot)
-            new_version_number = 1
-            all_versions = [{"version_number": 1, "content": pet_reply, "stat_snapshot": current_snapshot}]
-
             _create_message_with_version(session, ChatMessage.Sender.PET, pet_reply, stat_snapshot=current_snapshot)
             new_version_number = 1
             all_versions = [{"version_number": 1, "content": pet_reply, "stat_snapshot": current_snapshot}]
@@ -1001,7 +730,7 @@ def pet_chat_api(request, pet_id):
             "current_version": new_version_number,
         })
 
-    # ── Normal message ────────────────────────────────────────────────────────
+    # Normal message
     if explicit_action and not user_message:
         action_data = ACTIONS.get(explicit_action)
         if action_data:
@@ -1020,21 +749,11 @@ def pet_chat_api(request, pet_id):
         if pet.last_interaction_at else 0
     )
 
-    hours_alone = (
-        (tz.now() - pet.last_interaction_at).total_seconds() / 3600
-        if pet.last_interaction_at else 0
-    )
-
     pre_message_snapshot = _stats_snapshot(stats) if is_owner else None
 
     session = None
-    history_messages = []
-
     if is_authenticated:
         session = _get_or_create_session(request.user, pet)
-        history_messages = _build_history_messages(session)
-
-        history_messages = _build_history_messages(session)
 
     system_prompt = _build_system_prompt(pet, stats, hours_alone)
 
@@ -1046,21 +765,93 @@ def pet_chat_api(request, pet_id):
     llm_stat_changes = {}
 
     try:
-        # Use the custom chatbot service instead of HF API
-        pet_reply = chatbot.generate_response(
+
+        # Uses the new method that returns both response and stat changes
+        pet_reply, generated_stat_changes = chatbot.generate_response_with_stats(
             user_message=effective_user_message,
-            pet_state=stats.get_state() if hasattr(stats, 'get_state') else _stats_snapshot(stats),
+            pet_state=_stats_snapshot(stats),
             system_prompt=system_prompt
         )
         
-        # For stat changes, we still need to parse them from somewhere
-        # Since the model doesn't return JSON, we'll use default changes or parse if possible
-        llm_stat_changes = {}  # Default empty changes
+        # Merges the generated stat changes
+        if generated_stat_changes:
+            llm_stat_changes.update(generated_stat_changes)
+
         
+        # Clean the response
+        if pet_reply:
+            # Removes any lines that look like system instructions
+            lines = pet_reply.split('\n')
+            cleaned_lines = []
+            skip_next = False
+            
+            for line in lines:
+                if any(skip_word in line.lower() for skip_word in [
+                    'you are', 'you take this very seriously', 'rules:', 
+                    'response format', 'stat_changes', 'never break character',
+                    'interpret every stat', 'keep your reply short'
+                ]):
+                    skip_next = True
+                    continue
+                
+                if skip_next and not line.strip():
+                    skip_next = False
+                    continue
+                skip_next = False
+                
+                if line.strip() and not line.strip().startswith('{'):
+                    cleaned_lines.append(line)
+            
+            if cleaned_lines:
+                pet_reply = ' '.join(cleaned_lines).strip()
+            
+            # Removes any prompt artifacts
+            pet_reply = re.sub(r'^User:.*?\n', '', pet_reply, flags=re.DOTALL)
+            pet_reply = re.sub(r'^You are.*?\.\s*', '', pet_reply, flags=re.IGNORECASE)
+        
+        # Fallback if the response is empty
+        if not pet_reply or len(pet_reply) < 5:
+            if "feed" in effective_user_message.lower() or "food" in effective_user_message.lower():
+                pet_reply = random.choice([
+                    "*eats happily* Thank you! That was delicious!",
+                    "*purrs while eating* Mmm, tasty!",
+                    "*nuzzles your hand* You're the best! I was so hungry!",
+                ])
+            elif "play" in effective_user_message.lower():
+                pet_reply = random.choice([
+                    "*wags tail excitedly* Let's play!",
+                    "*bounces around* Yay! Playtime!",
+                    "*brings you a toy* Here! Catch!",
+                ])
+            elif "sleep" in effective_user_message.lower():
+                pet_reply = random.choice([
+                    "*yawns* Goodnight... *curls up*",
+                    "*gets cozy* Sleepy time... zzz",
+                    "*nuzzles into bed* So tired...",
+                ])
+            else:
+                pet_reply = random.choice([
+                    "*tilts head* That's nice!",
+                    "*purrs softly* I like that!",
+                    "*wags tail* Tell me more!",
+                    "*nuzzles you* You're sweet!",
+                ])
+        
+        # Tries to parse JSON for stat changes
+        if pet_reply and '{' in pet_reply and '}' in pet_reply:
+            try:
+                json_match = re.search(r'\{[^{}]*\}', pet_reply)
+                if json_match:
+                    parsed_reply, llm_stat_changes = _parse_llm_response(json_match.group())
+                    if parsed_reply and len(parsed_reply) > 5:
+                        pet_reply = parsed_reply
+            except Exception:
+                pass
+                
     except Exception as e:
         print(f"Error in chatbot: {e}")
         traceback.print_exc()
-        pet_reply = "I couldn't quite hear that. Try again?"
+        pet_reply = "*tilts head curiously* Could you say that again?"
 
     if is_owner and llm_stat_changes:
         from core.views_stats import _apply_deltas
@@ -1087,21 +878,21 @@ def pet_chat_api(request, pet_id):
     stats.refresh_from_db()
 
     return Response({
-        "reply":          pet_reply,
-        "session_id":     session.id if session else None,
-        "stats":          _stats_snapshot(stats) if is_owner else None,
+        "reply": pet_reply,
+        "session_id": session.id if session else None,
+        "stats": _stats_snapshot(stats) if is_owner else None,
         "keyword_action": explicit_action or None,
         "stat_changes": llm_stat_changes,
         "is_owner": is_owner,
     })
 
 
+# ── Test Chat ─────────────────────────────────────────────────────────────────────
+
 @api_view(['POST'])
 @csrf_exempt
 def chat_api(request):
-    """
-    Simple chat endpoint for testing - uses custom model with fallback
-    """
+    """Simple chat endpoint for testing - uses custom model with fallback"""
     try:
         data = json.loads(request.body)
         user_message = data.get("message", "").strip()
@@ -1110,11 +901,13 @@ def chat_api(request):
         if not user_message:
             return JsonResponse({"reply": "Please say something!"}, status=400)
         
-        # Try with the custom model
+        # Tries with the custom model
         if chatbot and chatbot.model is not None:
-            # Build a simple system prompt
-            system_prompt = f"""You are a friendly pet named {pet_state.get('name', 'Pet') if pet_state else 'Rocko'}.
-Keep responses short, playful, and pet-like. Use *asterisks* for actions."""
+            system_prompt = f"""You are a friendly pet named {pet_state.get('name', 'Pet') if pet_state else 'Rocko'}. Keep responses short, playful, and pet-like. Use *asterisks* for actions.
+
+User: {user_message}
+
+Pet:"""
             
             reply = chatbot.generate_response(
                 user_message=user_message,
