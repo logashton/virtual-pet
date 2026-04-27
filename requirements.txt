@@ -16,3 +16,6 @@ pytest
 pytest-django
 anthropic
 google-generativeai
+sentencepiece
+tiktoken
+peft

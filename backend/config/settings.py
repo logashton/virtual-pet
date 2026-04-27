@@ -97,7 +97,7 @@ STATICFILES_DIRS = [
     PROJECT_DIR / "frontend" / "public",
 ]
 MEDIA_URL = "/media/"
-MEDIA_ROOT = (Path(os.environ.get("DJANGO_MEDIA_ROOT", "")) or (PROJECT_DIR / "media")).resolve()
+MEDIA_ROOT = Path(os.environ.get("DJANGO_MEDIA_ROOT") or (PROJECT_DIR / "media")).resolve()
 if RUNNING_TESTS:
     import tempfile
     MEDIA_ROOT = Path(tempfile.mkdtemp(prefix="vp_test_media_"))

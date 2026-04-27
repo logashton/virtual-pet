@@ -125,6 +125,12 @@
         .btn-regen { background: #24242d; border: 1px solid #3b3b47; color: #c9cbe0; border-radius: 6px; }
         .btn-regen:hover { background: #2f3040; }
         .keywords-hint { color: #9499b2; }
+        .typing-bubble { display: flex; gap: 5px; align-items: center; padding: 10px 14px; }
+        .typing-bubble span { width: 7px; height: 7px; border-radius: 50%; background: #7070a0; display: inline-block; animation: typingBounce 1.2s infinite ease-in-out; }
+        .typing-bubble span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-bubble span:nth-child(3) { animation-delay: 0.4s; }
+        .typing-bubble .local-note { font-size: 0.72rem; color: #7070a0; margin-left: 6px; }
+        @keyframes typingBounce { 0%, 80%, 100% { transform: scale(0.7); opacity: 0.5; } 40% { transform: scale(1); opacity: 1; } }
         .model-toggle-row { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
         .model-toggle-label { font-size: 0.75rem; color: #9499b2; }
         .model-toggle { display: flex; border: 1px solid #3b3b47; border-radius: 6px; overflow: hidden; }
@@ -546,6 +552,7 @@
             regenBtnEl = null;
         }
         lastPetMsgEl.style.opacity = '0.4';
+        showTyping();
 
         fetch('/chat/api/' + PET_ID + '/', {
             method: 'POST',
@@ -576,7 +583,7 @@
                 if (lastPetMsgEl) lastPetMsgEl.style.opacity = '1';
                 appendMsg('system', 'Network error.');
             })
-            .finally(function () { isBusy = false; setBusy(false); });
+            .finally(function () { hideTyping(); isBusy = false; setBusy(false); });
     }
 
     function appendDivider(text) {
@@ -619,6 +626,30 @@
     }
 
     // ── Busy ──────────────────────────────────────────────────────────────────
+    var typingEl = null;
+
+    function showTyping() {
+        var msgs = document.getElementById('chat-messages');
+        typingEl = document.createElement('div');
+        typingEl.className = 'msg pet typing-bubble';
+        typingEl.innerHTML = '<span></span><span></span><span></span>';
+        if (modelPreference === 'local') {
+            var note = document.createElement('span');
+            note.className = 'local-note';
+            note.textContent = 'local model, this may take a moment…';
+            typingEl.appendChild(note);
+        }
+        msgs.appendChild(typingEl);
+        msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function hideTyping() {
+        if (typingEl && typingEl.parentNode) {
+            typingEl.parentNode.removeChild(typingEl);
+            typingEl = null;
+        }
+    }
+
     function setBusy(busy) {
         document.getElementById('send-btn').disabled = busy;
         document.getElementById('chat-input').disabled = busy;
@@ -648,6 +679,7 @@
         setBusy(true);
         lastStatChangeEl = null;  // new message exchange — reset stat change tracker
         appendMsg('user', text);
+        showTyping();
         document.getElementById('chat-input').value = '';
 
         var body = { message: text, model_preference: modelPreference };
@@ -668,7 +700,7 @@
                 else if (isOwner) loadStats();
             })
             .catch(function () { appendMsg('system', 'Network error. Try again.'); })
-            .finally(function () { isBusy = false; setBusy(false); });
+            .finally(function () { hideTyping(); isBusy = false; setBusy(false); });
     }
 
     // ── Action buttons ────────────────────────────────────────────────────────

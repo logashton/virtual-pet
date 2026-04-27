@@ -32,7 +32,7 @@ from .services.chatbot_service import get_chatbot_service
 HF_API_TOKEN = os.environ.get("HUGGINGFACE_API_TOKEN", "")
 HF_API_URL   = "https://router.huggingface.co/v1/chat/completions"
 HF_HEADERS   = {"Authorization": f"Bearer {HF_API_TOKEN}"}
-HF_MODEL     = "deepseek-ai/DeepSeek-V3:novita"
+HF_MODEL     = "deepseek-ai/DeepSeek-V3"
 print("HF_MODEL value:", HF_MODEL)
 
 MAX_HISTORY       = 12
@@ -253,18 +253,16 @@ def _call_hf_api(messages: list, max_tokens: int = 300) -> tuple[str, dict]:
 
 
 def _call_local_model(messages: list) -> tuple[str, dict]:
-    """Call the local DistilGPT2 chatbot and return (reply, stat_changes).
-    Tries to parse JSON stat changes from the response; falls back to plain text."""
+    """Call the local chatbot and return (reply, stat_changes)."""
     if not chatbot:
         raise RuntimeError("Local chatbot not available")
     system_prompt = next((m["content"] for m in messages if m["role"] == "system"), "")
     user_message  = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
-    raw = chatbot.generate_response(
+    return chatbot.generate_response_with_stats(
         user_message=user_message,
         pet_state={},
         system_prompt=system_prompt,
     )
-    return _parse_llm_response(raw)
 
 
 def _generate_reply(messages: list, model_preference: str = "hf") -> tuple[str, dict]:
