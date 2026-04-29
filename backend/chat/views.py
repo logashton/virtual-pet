@@ -32,7 +32,7 @@ from .services.chatbot_service import get_chatbot_service
 HF_API_TOKEN = os.environ.get("HUGGINGFACE_API_TOKEN", "")
 HF_API_URL   = "https://router.huggingface.co/v1/chat/completions"
 HF_HEADERS   = {"Authorization": f"Bearer {HF_API_TOKEN}"}
-HF_MODEL     = "deepseek-ai/DeepSeek-V3"
+HF_MODEL     = "deepseek-ai/DeepSeek-V3-0324"
 print("HF_MODEL value:", HF_MODEL)
 
 MAX_HISTORY       = 12
@@ -164,7 +164,11 @@ RESPONSE FORMAT — you must always respond with valid JSON and nothing else:
 }
 
 You have full creative control over stat_changes. Guidelines:
-- Values can range from -40 to +40 but most interactions should be modest (-15 to +15). Save big swings for big moments.
+- Values can range from -50 to +50. Positive interactions from a caring owner must feel rewarding (+10 to +30). Negative or neutral interactions must be modest (-5 to -15). Save extreme swings for truly significant moments. 
+A warm feeding interaction: hunger +20, happiness +15
+A kind greeting after time apart: happiness +18, energy +15  
+A harsh or dismissive message: happiness -15, energy -3
+
 - Unexpected side effects are encouraged.
 - Mean or ignoring messages should genuinely hurt. Kind messages should genuinely help.
 - Every interaction should affect at least one stat. Set the rest to 0.
@@ -219,7 +223,7 @@ def _parse_llm_response(raw: str) -> tuple[str, dict]:
         reply = str(data.get("reply", "")).strip() or raw
         raw_changes = data.get("stat_changes", {})
         VALID_FIELDS = {"hunger", "energy", "happiness", "cleanliness", "health"}
-        CAP = 40
+        CAP = 50
         stat_changes = {}
         for field in VALID_FIELDS:
             if field in raw_changes:
@@ -237,12 +241,13 @@ def _parse_llm_response(raw: str) -> tuple[str, dict]:
 
 # ── LLM callers 
 
-def _call_hf_api(messages: list, max_tokens: int = 300) -> tuple[str, dict]:
+def _call_hf_api(messages: list, max_tokens: int = 1000) -> tuple[str, dict]:
     """Call HuggingFace API (DeepSeek) and return (reply, stat_changes)."""
     resp = requests.post(HF_API_URL, headers=HF_HEADERS, json={
         "model": HF_MODEL,
         "messages": messages,
         "max_tokens": max_tokens,
+        "response_format": {"type": "json_object"},
     }, timeout=30)
     print("HF status:", resp.status_code)
     print("HF response:", resp.text[:500])
@@ -250,7 +255,6 @@ def _call_hf_api(messages: list, max_tokens: int = 300) -> tuple[str, dict]:
         raise RuntimeError(f"HF API returned {resp.status_code}")
     raw = resp.json()["choices"][0]["message"]["content"].strip()
     return _parse_llm_response(raw)
-
 
 def _call_local_model(messages: list) -> tuple[str, dict]:
     """Call the local chatbot and return (reply, stat_changes)."""
@@ -655,6 +659,10 @@ def pet_chat_api(request, pet_id):
     llm_messages.append({"role": "user", "content": effective_user_message})
 
     pet_reply, llm_stat_changes = _generate_reply(llm_messages, model_preference)
+    
+    #debug
+    print("is_owner:", is_owner)
+    print("stat_changes from LLM:", llm_stat_changes)
 
     if is_owner and llm_stat_changes:
         stats.refresh_from_db()
